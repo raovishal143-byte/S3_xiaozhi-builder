@@ -168,7 +168,7 @@ if (!appSource.includes('#include "startup_greeting.h"')) {
   appSource = appSource.replace('#include "application.h"', '#include "application.h"\n#include "startup_greeting.h"');
 }
 const audioStart = '    audio_service_.Initialize(codec);\n    audio_service_.Start();';
-const greetingStart = audioStart + '\n\n    // Local, once-per-boot greeting; this runs even when Wi-Fi is unavailable.\n    Schedule([this]() {\n        startup_greeting_playing_ = true;\n        SetDeviceState(kDeviceStateSpeaking);\n        audio_service_.PlaySound(std::string_view(\n            reinterpret_cast<const char*>(STARTUP_GREETING_OGG),\n            STARTUP_GREETING_OGG_LEN));\n    });';
+const greetingStart = audioStart + '\n\n    // Keep local WakeNet active even before Wi-Fi or cloud activation.\n    audio_service_.EnableWakeWordDetection(true);\n\n    // Queue the embedded greeting once per boot; no network is needed.\n    Schedule([this]() {\n        startup_greeting_playing_ = true;\n        audio_service_.PlaySound(std::string_view(\n            reinterpret_cast<const char*>(STARTUP_GREETING_OGG),\n            STARTUP_GREETING_OGG_LEN));\n    });';
 if (appSource.includes(audioStart) && !appSource.includes('STARTUP_GREETING_OGG_LEN')) {
   appSource = appSource.replace(audioStart, greetingStart);
 } else if (!appSource.includes('STARTUP_GREETING_OGG_LEN')) {
@@ -186,14 +186,14 @@ else if (!appSource.includes('Offline wake word detected:')) throw new Error('Co
 // completion handler. The greeting must never invoke WakeWordInvoke itself.
 const oldPlaybackHandler = '        if (bits & MAIN_EVENT_PLAYBACK_DRAINED) {\n            if (pending_startup_greeting_ && GetDeviceState() == kDeviceStateIdle &&\n                audio_service_.IsPlaybackIdle()) {\n                pending_startup_greeting_ = false;\n                WakeWordInvoke("Jarvis");\n            }';
 if (appSource.includes(oldPlaybackHandler)) {
-  appSource = appSource.replace(oldPlaybackHandler, '        if (bits & MAIN_EVENT_PLAYBACK_DRAINED) {\n            if (startup_greeting_playing_ && audio_service_.IsPlaybackIdle()) {\n                startup_greeting_playing_ = false;\n                SetDeviceState(kDeviceStateIdle);\n            }');
+  appSource = appSource.replace(oldPlaybackHandler, '        if (bits & MAIN_EVENT_PLAYBACK_DRAINED) {\n            if (startup_greeting_playing_ && audio_service_.IsPlaybackIdle()) {\n                startup_greeting_playing_ = false;\n            }');
 } else {
   const marker = '        if (bits & MAIN_EVENT_PLAYBACK_DRAINED) {';
   const p = appSource.indexOf(marker);
   if (p < 0) throw new Error('Could not locate playback-drained handler');
   const insert = p + marker.length;
   if (!appSource.includes('startup_greeting_playing_ && audio_service_.IsPlaybackIdle()')) {
-    appSource = appSource.slice(0, insert) + '\n            if (startup_greeting_playing_ && audio_service_.IsPlaybackIdle()) {\n                startup_greeting_playing_ = false;\n                SetDeviceState(kDeviceStateIdle);\n            }' + appSource.slice(insert);
+    appSource = appSource.slice(0, insert) + '\n            if (startup_greeting_playing_ && audio_service_.IsPlaybackIdle()) {\n                startup_greeting_playing_ = false;\n            }' + appSource.slice(insert);
   }
 }
 fs.writeFileSync(appSourcePath, appSource);
