@@ -124,6 +124,83 @@ jobs:
           fi
           echo "Verified output/flasher_args.json"
           cat output/flasher_args.json
+
+          echo "=== Enforcing Waveshare S3-Zero silicon settings ==="
+          grep -q '"flash_size"[[:space:]]*:[[:space:]]*"4MB"' output/flasher_args.json || { echo "ERROR: flasher metadata is not 4MB"; exit 1; }
+          grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+          ls -la output/
+
+      - name: Upload firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaozhi-firmware-${{ inputs.board || 's3-zero' }}-${{ inputs.chip || 'esp32s3' }}
+          path: output/
+          retention-days: 90
+
+      - name: Build summary
+        if: success()
+        run: |
+          FW_SIZE=$(du -sh xiaozhi-esp32/build/*.bin 2>/dev/null | head -1 | cut -f1 || echo "unknown")
+          echo "### ✅ Firmware Built :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Board:** ${{ inputs.board || 's3-zero' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
+ output/sdkconfig.txt || { echo "ERROR: sdkconfig is not 4MB"; exit 1; }
+          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y
+          ls -la output/
+
+      - name: Upload firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaozhi-firmware-${{ inputs.board || 's3-zero' }}-${{ inputs.chip || 'esp32s3' }}
+          path: output/
+          retention-days: 90
+
+      - name: Build summary
+        if: success()
+        run: |
+          FW_SIZE=$(du -sh xiaozhi-esp32/build/*.bin 2>/dev/null | head -1 | cut -f1 || echo "unknown")
+          echo "### ✅ Firmware Built :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Board:** ${{ inputs.board || 's3-zero' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
+ output/sdkconfig.txt || { echo "ERROR: Quad PSRAM is not enabled"; exit 1; }
+          if grep -q '^CONFIG_SPIRAM_MODE_OCT=y
+          ls -la output/
+
+      - name: Upload firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaozhi-firmware-${{ inputs.board || 's3-zero' }}-${{ inputs.chip || 'esp32s3' }}
+          path: output/
+          retention-days: 90
+
+      - name: Build summary
+        if: success()
+        run: |
+          FW_SIZE=$(du -sh xiaozhi-esp32/build/*.bin 2>/dev/null | head -1 | cut -f1 || echo "unknown")
+          echo "### ✅ Firmware Built :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Board:** ${{ inputs.board || 's3-zero' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
+ output/sdkconfig.txt; then echo "ERROR: Octal PSRAM is still enabled"; exit 1; fi
+          echo "PASS: 4MB flash + Quad PSRAM verified."
+
           echo "=== Collected output files ==="
           ls -la output/
 
