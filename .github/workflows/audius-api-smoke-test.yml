@@ -1,0 +1,30 @@
+name: Audius API smoke test
+
+on:
+  push:
+    branches:
+      - feature/audius-music-player
+    paths:
+      - 'scripts/test-audius-api.js'
+      - '.github/workflows/audius-api-smoke-test.yml'
+  workflow_dispatch:
+    inputs:
+      query:
+        description: 'Song or artist to test'
+        required: false
+        default: 'Tum Hi Ho'
+        type: string
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test Audius search and stream endpoint
+        env:
+          MUSIC_QUERY: ${{ inputs.query || 'Tum Hi Ho' }}
+        run: node scripts/test-audius-api.js "$MUSIC_QUERY"
