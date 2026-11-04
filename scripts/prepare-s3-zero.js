@@ -170,25 +170,52 @@ const readySoundBlock = [
   '    });'
 ].join(String.fromCharCode(10));
 const startupGreetingBlock = [
-  '    // This static latch is initialized once per boot, even if activation completes again.',
-  '    static bool startup_greeting_triggered = false;',
-  '    if (!startup_greeting_triggered) {',
-  '        startup_greeting_triggered = true;',
-  '        Schedule([this]() {',
-  '            // Finish the ready sound before opening the one startup greeting session.',
-  '            audio_service_.PlaySound(Lang::Sounds::OGG_SUCCESS);',
-  '            while (!audio_service_.IsPlaybackIdle()) {',
-  '                vTaskDelay(pdMS_TO_TICKS(50));',
-  '            }',
-  '            WakeWordInvoke("Jarvis");',
-  '        });',
+  '    // Start one automatic greeting session per boot, after the ready chime drains.',
+  '    if (!startup_greeting_triggered_) {',
+  '        startup_greeting_triggered_ = true;',
+  '        pending_startup_greeting_ = true;',
+  '        audio_service_.PlaySound(Lang::Sounds::OGG_SUCCESS);',
   '    }'
 ].join(String.fromCharCode(10));
 if (appSource.includes(readySoundBlock)) {
   appSource = appSource.replace(readySoundBlock, startupGreetingBlock);
-  fs.writeFileSync(appSourcePath, appSource);
-} else if (!appSource.includes('WakeWordInvoke("Jarvis")')) {
+} else if (appSource.includes('static bool startup_greeting_triggered = false;')) {
+  const oldStart = appSource.indexOf('    // This static latch is initialized once per boot');
+  const oldEnd = appSource.indexOf('\n    }', oldStart) + 6;
+  if (oldStart < 0 || oldEnd < 6) throw new Error('Could not locate previous startup greeting patch');
+  appSource = appSource.slice(0, oldStart) + startupGreetingBlock.slice(startupGreetingBlock.indexOf("[\n") + 2, startupGreetingBlock.lastIndexOf("]);')) + appSource.slice(oldEnd);
+} else if (!appSource.includes('pending_startup_greeting_ = true;')) {
   throw new Error('Could not safely add the startup greeting trigger');
+}
+fs.writeFileSync(appSourcePath, appSource);
+
+// Keep the greeting latch and pending flag in Application RAM; both reset on reboot.
+const appHeaderPath = path.join(root, 'main', 'application.h');
+let appHeader = fs.readFileSync(appHeaderPath, 'utf8');
+const pendingListeningFlag = '    bool pending_listening_start_ = false;  // Waiting for playback to drain before starting listening';
+const startupFlags = pendingListeningFlag + '\n    bool startup_greeting_triggered_ = false;  // Once per power-on session\n    bool pending_startup_greeting_ = false;  // Wait for ready chime playback to drain';
+if (appHeader.includes(pendingListeningFlag) && !appHeader.includes('startup_greeting_triggered_')) {
+  appHeader = appHeader.replace(pendingListeningFlag, startupFlags);
+} else if (!appHeader.includes('startup_greeting_triggered_')) {
+  throw new Error('Could not safely add startup greeting state to application.h');
+}
+fs.writeFileSync(appHeaderPath, appHeader);
+
+// Trigger the startup session from the playback-drained event, never by blocking the main loop.
+const playbackHandler = [
+  '            if (pending_startup_greeting_ && GetDeviceState() == kDeviceStateIdle &&',
+  '                audio_service_.IsPlaybackIdle()) {',
+  '                pending_startup_greeting_ = false;',
+  '                WakeWordInvoke("Jarvis");',
+  '            }'
+].join(String.fromCharCode(10));
+const playbackMarker = '        if (bits & MAIN_EVENT_PLAYBACK_DRAINED) {';
+if (!appSource.includes('pending_startup_greeting_ = false;')) {
+  const p = appSource.indexOf(playbackMarker);
+  if (p < 0) throw new Error('Could not locate playback-drained event handler');
+  const insert = p + playbackMarker.length;
+  appSource = appSource.slice(0, insert) + '\n' + playbackHandler + appSource.slice(insert);
+  fs.writeFileSync(appSourcePath, appSource);
 }
 
 console.log('Prepared custom Waveshare ESP32-S3-Zero board (no display).');
