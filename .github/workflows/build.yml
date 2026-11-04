@@ -97,8 +97,25 @@ jobs:
           cp xiaozhi-esp32/build/*.bin output/ 2>/dev/null || true
           cp xiaozhi-esp32/build/bootloader/*.bin output/ 2>/dev/null || true
           cp xiaozhi-esp32/build/partition_table/*.bin output/ 2>/dev/null || true
+
+          # Preserve ESP-IDF's authoritative flash offsets and command arguments.
+          cp xiaozhi-esp32/build/flasher_args.json output/ 2>/dev/null || true
+          cp xiaozhi-esp32/build/flash_args output/ 2>/dev/null || true
+          cp xiaozhi-esp32/build/flash_project_args output/ 2>/dev/null || true
+
           cp xiaozhi-esp32/sdkconfig output/sdkconfig.txt 2>/dev/null || true
           cp xiaozhi-esp32/main/boards/${{ inputs.board || 's3-zero' }}/config.h output/ 2>/dev/null || true
+
+          echo "=== Flash metadata check ==="
+          if [ ! -s output/flasher_args.json ]; then
+            echo "ERROR: ESP-IDF flasher_args.json was not generated or copied."
+            echo "Available flash-related files:"
+            find xiaozhi-esp32/build -maxdepth 2 -type f \( -name '*flash*args*' -o -name 'flasher_args.json' \) -print
+            exit 1
+          fi
+          echo "Verified output/flasher_args.json"
+          cat output/flasher_args.json
+          echo "=== Collected output files ==="
           ls -la output/
 
       - name: Upload firmware
