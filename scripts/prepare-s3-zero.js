@@ -178,7 +178,7 @@ if (appSource.includes(audioStart) && !appSource.includes('STARTUP_GREETING_OGG_
 // Wake-word detections are local. When the network/protocol is unavailable,
 // log the detection rather than silently discarding it.
 const noProtocol = 'void Application::HandleWakeWordDetectedEvent() {\n    if (!protocol_) {\n        return;\n    }';
-const offlineWake = 'void Application::HandleWakeWordDetectedEvent() {\n    if (!protocol_) {\n        ESP_LOGI(TAG, "Offline wake word detected: %s (network unavailable)", audio_service_.GetLastWakeWord().c_str());\n        return;\n    }';
+const offlineWake = 'void Application::HandleWakeWordDetectedEvent() {\n    if (!protocol_) {\n        ESP_LOGI(TAG, "Offline wake word detected: %s (network unavailable)", audio_service_.GetLastWakeWord().c_str());\n        audio_service_.EnableWakeWordDetection(true);\n        return;\n    }';
 if (appSource.includes(noProtocol)) appSource = appSource.replace(noProtocol, offlineWake);
 else if (!appSource.includes('Offline wake word detected:')) throw new Error('Could not safely add offline wake-word logging');
 
