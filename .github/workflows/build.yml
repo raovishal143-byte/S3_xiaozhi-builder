@@ -54,6 +54,7 @@ jobs:
           echo 'CONFIG_ESPTOOLPY_FLASHSIZE="4MB"' >> "$TARGET_DEFAULTS"
           # Upstream defaults point to a 16MB partition table; use the 4MB layout.
           sed -i '/^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=/d' "$TARGET_DEFAULTS"
+          echo "CONFIG_PARTITION_TABLE_CUSTOM=y" >> "$TARGET_DEFAULTS"
           echo 'CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/4m.csv"' >> "$TARGET_DEFAULTS"
           test -f xiaozhi-esp32/partitions/v2/4m.csv
 
@@ -98,7 +99,138 @@ jobs:
           echo "=== Flash metadata ==="
           cat output/flasher_args.json
           grep -q '"flash_size"[[:space:]]*:[[:space:]]*"4MB"' output/flasher_args.json
-          grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/4m.csv"          grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE="4MB"$' output/sdkconfig.txt
+          grep -q '^CONFIG_PARTITION_TABLE_CUSTOM=y
+          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' output/sdkconfig.txt
+          echo "PASS: 4MB flash and Quad PSRAM verified."
+          ls -la output/
+
+      - name: Upload firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaozhi-firmware-s3-zero-esp32s3
+          path: output/
+          retention-days: 90
+
+      - name: Build summary
+        if: success()
+        run: |
+          echo "### Firmware Built" >> $GITHUB_STEP_SUMMARY
+          echo "- Board: Waveshare ESP32-S3-Zero" >> $GITHUB_STEP_SUMMARY
+          echo "- Flash: 4MB" >> $GITHUB_STEP_SUMMARY
+          echo "- PSRAM: Quad, 80MHz" >> $GITHUB_STEP_SUMMARY
+ output/sdkconfig.txt
+          grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE="4MB"$' output/sdkconfig.txt
+          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' output/sdkconfig.txt
+          echo "PASS: 4MB flash and Quad PSRAM verified."
+          ls -la output/
+
+      - name: Upload firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaozhi-firmware-s3-zero-esp32s3
+          path: output/
+          retention-days: 90
+
+      - name: Build summary
+        if: success()
+        run: |
+          echo "### Firmware Built" >> $GITHUB_STEP_SUMMARY
+          echo "- Board: Waveshare ESP32-S3-Zero" >> $GITHUB_STEP_SUMMARY
+          echo "- Flash: 4MB" >> $GITHUB_STEP_SUMMARY
+          echo "- PSRAM: Quad, 80MHz" >> $GITHUB_STEP_SUMMARY
+ output/sdkconfig.txt
+          grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/4m.csv"
+          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' output/sdkconfig.txt
+          echo "PASS: 4MB flash and Quad PSRAM verified."
+          ls -la output/
+
+      - name: Upload firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaozhi-firmware-s3-zero-esp32s3
+          path: output/
+          retention-days: 90
+
+      - name: Build summary
+        if: success()
+        run: |
+          echo "### Firmware Built" >> $GITHUB_STEP_SUMMARY
+          echo "- Board: Waveshare ESP32-S3-Zero" >> $GITHUB_STEP_SUMMARY
+          echo "- Flash: 4MB" >> $GITHUB_STEP_SUMMARY
+          echo "- PSRAM: Quad, 80MHz" >> $GITHUB_STEP_SUMMARY
+ output/sdkconfig.txt
+          grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE="4MB"$' output/sdkconfig.txt
+          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' output/sdkconfig.txt
+          echo "PASS: 4MB flash and Quad PSRAM verified."
+          ls -la output/
+
+      - name: Upload firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaozhi-firmware-s3-zero-esp32s3
+          path: output/
+          retention-days: 90
+
+      - name: Build summary
+        if: success()
+        run: |
+          echo "### Firmware Built" >> $GITHUB_STEP_SUMMARY
+          echo "- Board: Waveshare ESP32-S3-Zero" >> $GITHUB_STEP_SUMMARY
+          echo "- Flash: 4MB" >> $GITHUB_STEP_SUMMARY
+          echo "- PSRAM: Quad, 80MHz" >> $GITHUB_STEP_SUMMARY
+ output/sdkconfig.txt
+          grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' output/sdkconfig.txt
+          echo "PASS: 4MB flash and Quad PSRAM verified."
+          ls -la output/
+
+      - name: Upload firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaozhi-firmware-s3-zero-esp32s3
+          path: output/
+          retention-days: 90
+
+      - name: Build summary
+        if: success()
+        run: |
+          echo "### Firmware Built" >> $GITHUB_STEP_SUMMARY
+          echo "- Board: Waveshare ESP32-S3-Zero" >> $GITHUB_STEP_SUMMARY
+          echo "- Flash: 4MB" >> $GITHUB_STEP_SUMMARY
+          echo "- PSRAM: Quad, 80MHz" >> $GITHUB_STEP_SUMMARY
+ output/sdkconfig.txt
+          grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE="4MB"$' output/sdkconfig.txt
+          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' output/sdkconfig.txt
+          echo "PASS: 4MB flash and Quad PSRAM verified."
+          ls -la output/
+
+      - name: Upload firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaozhi-firmware-s3-zero-esp32s3
+          path: output/
+          retention-days: 90
+
+      - name: Build summary
+        if: success()
+        run: |
+          echo "### Firmware Built" >> $GITHUB_STEP_SUMMARY
+          echo "- Board: Waveshare ESP32-S3-Zero" >> $GITHUB_STEP_SUMMARY
+          echo "- Flash: 4MB" >> $GITHUB_STEP_SUMMARY
+          echo "- PSRAM: Quad, 80MHz" >> $GITHUB_STEP_SUMMARY
+ output/sdkconfig.txt
           grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' output/sdkconfig.txt
           ! grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' output/sdkconfig.txt
           echo "PASS: 4MB flash and Quad PSRAM verified."
