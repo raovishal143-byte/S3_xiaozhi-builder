@@ -4,6 +4,9 @@
 name: Build XiaoZhi Firmware
 
 on:
+  push:
+    branches:
+      - esp32-s3-zero-support
   workflow_dispatch:
     inputs:
       board:
