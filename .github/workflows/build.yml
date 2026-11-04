@@ -196,7 +196,9 @@ jobs:
               raise SystemExit("FAIL: flash manifest is not configured for 4MB")
           print("PASS: all flash manifests resolve; 4MB bounds verified.")
           PY
-          sha256sum output/*.bin | tee output/SHA256SUMS.txt
+          (cd output && find . -type f -name '*.bin' -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+          echo '=== Verify complete packaged binary checksum manifest ==='
+          (cd output && sha256sum -c SHA256SUMS.txt)
           echo "PASS: Jarvis selected; 4MB flash and partition boundaries verified."
           ls -lah output/
 
