@@ -5,6 +5,7 @@ on:
     branches:
       - esp32-s3-zero-support
       - feature/hey-buddy-voice
+      - feature/audius-music-player
   workflow_dispatch:
     inputs:
       board:
@@ -162,16 +163,17 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: xiaozhi-firmware-s3-zero-jarvis
+          name: xiaozhi-firmware-s3-zero-audius-dev-baseline
           path: output/
           retention-days: 90
 
       - name: Build summary
         if: success()
         run: |
-          echo "### Jarvis firmware build completed" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Audius development branch baseline firmware build completed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Board: Waveshare ESP32-S3-Zero" >> "$GITHUB_STEP_SUMMARY"
           echo "- Wake word: Jarvis (offline WakeNet9)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Note: Audius firmware playback is not implemented in this baseline artifact." >> "$GITHUB_STEP_SUMMARY"
           echo "- Flash: 4MB; PSRAM: Quad 80MHz" >> "$GITHUB_STEP_SUMMARY"
           echo "- Partition layout: partitions/v2/4m.csv" >> "$GITHUB_STEP_SUMMARY"
           echo "- MultiNet custom wake word: disabled" >> "$GITHUB_STEP_SUMMARY"
