@@ -127,7 +127,12 @@ jobs:
 
           echo "=== Enforcing Waveshare S3-Zero silicon settings ==="
           grep -q '"flash_size"[[:space:]]*:[[:space:]]*"4MB"' output/flasher_args.json || { echo "ERROR: flasher metadata is not 4MB"; exit 1; }
-          grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+          grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE="4MB"$' output/sdkconfig.txt || { echo "ERROR: sdkconfig is not 4MB"; exit 1; }
+          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' output/sdkconfig.txt || { echo "ERROR: Quad PSRAM is not enabled"; exit 1; }
+          if grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' output/sdkconfig.txt; then echo "ERROR: Octal PSRAM is still enabled"; exit 1; fi
+          echo "PASS: 4MB flash + Quad PSRAM verified."
+
+          echo "=== Collected output files ==="
           ls -la output/
 
       - name: Upload firmware
