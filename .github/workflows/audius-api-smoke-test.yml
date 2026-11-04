@@ -26,5 +26,5 @@ jobs:
           node-version: 22
       - name: Test Audius search and stream endpoint
         env:
-          MUSIC_QUERY: ${{ inputs.query || 'Tum Hi Ho' }}
+          MUSIC_QUERY: ${{ inputs.query || 'Shape of You' }}
         run: node scripts/test-audius-api.js "$MUSIC_QUERY"
