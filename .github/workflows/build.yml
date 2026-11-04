@@ -49,20 +49,29 @@ jobs:
           echo "Using build_config.json"
           node scripts/generate-config.js build_config.json
 
-          echo "Applying ESP32-S3-Zero 4MB Flash setting"
-          sed -i '/^CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y$/d' xiaozhi-esp32/sdkconfig.defaults
-          sed -i '/^# CONFIG_ESPTOOLPY_FLASHSIZE_16MB is not set$/d' xiaozhi-esp32/sdkconfig.defaults
-          echo "# CONFIG_ESPTOOLPY_FLASHSIZE_16MB is not set" >> xiaozhi-esp32/sdkconfig.defaults
-          echo "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y" >> xiaozhi-esp32/sdkconfig.defaults
+          echo "Applying ESP32-S3-Zero settings in the TARGET-specific defaults (these are read after the base defaults)"
+          TARGET_DEFAULTS="xiaozhi-esp32/sdkconfig.defaults.esp32s3"
+          test -f "$TARGET_DEFAULTS"
 
-          echo "Selecting Quad PSRAM for ESP32-S3FH4R2 (2MB)"
-          sed -i '/^CONFIG_SPIRAM_MODE_OCT=y$/d' xiaozhi-esp32/sdkconfig.defaults
-          sed -i '/^# CONFIG_SPIRAM_MODE_OCT is not set$/d' xiaozhi-esp32/sdkconfig.defaults
-          sed -i '/^CONFIG_SPIRAM_MODE_QUAD=y$/d' xiaozhi-esp32/sdkconfig.defaults
-          echo "CONFIG_SPIRAM=y" >> xiaozhi-esp32/sdkconfig.defaults
-          echo "CONFIG_SPIRAM_MODE_QUAD=y" >> xiaozhi-esp32/sdkconfig.defaults
-          echo "CONFIG_SPIRAM_SPEED_80M=y" >> xiaozhi-esp32/sdkconfig.defaults
-          grep -E 'CONFIG_SPIRAM=|CONFIG_SPIRAM_MODE_QUAD=|CONFIG_SPIRAM_SPEED_80M=' xiaozhi-esp32/sdkconfig.defaults
+          # The upstream ESP32-S3 defaults select 16MB flash and Octal PSRAM.
+          # Override those settings in sdkconfig.defaults.esp32s3, not only the base file.
+          sed -i '/^CONFIG_ESPTOOLPY_FLASHSIZE_/d;/^# CONFIG_ESPTOOLPY_FLASHSIZE_/d;/^CONFIG_ESPTOOLPY_FLASHSIZE=/d' "$TARGET_DEFAULTS"
+          printf '\\n# Waveshare ESP32-S3-Zero: ESP32-S3FH4R2, 4MB flash + 2MB Quad PSRAM\\n' >> "$TARGET_DEFAULTS"
+          echo "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y" >> "$TARGET_DEFAULTS"
+          echo 'CONFIG_ESPTOOLPY_FLASHSIZE="4MB"' >> "$TARGET_DEFAULTS"
+
+          sed -i '/^CONFIG_SPIRAM_MODE_OCT=y$/d;/^# CONFIG_SPIRAM_MODE_OCT is not set$/d;/^CONFIG_SPIRAM_MODE_QUAD=y$/d;/^CONFIG_SPIRAM_MODE_/d' "$TARGET_DEFAULTS"
+          echo "CONFIG_SPIRAM=y" >> "$TARGET_DEFAULTS"
+          echo "# CONFIG_SPIRAM_MODE_OCT is not set" >> "$TARGET_DEFAULTS"
+          echo "CONFIG_SPIRAM_MODE_QUAD=y" >> "$TARGET_DEFAULTS"
+          echo "CONFIG_SPIRAM_SPEED_80M=y" >> "$TARGET_DEFAULTS"
+
+          # Remove any stale generated sdkconfig so ESP-IDF resolves the edited defaults.
+          rm -f xiaozhi-esp32/sdkconfig
+          rm -rf xiaozhi-esp32/build
+
+          echo "=== Effective ESP32-S3 target defaults ==="
+          grep -E 'FLASHSIZE|SPIRAM|FLASHMODE' "$TARGET_DEFAULTS"
 
       - name: Verify generated config
         run: |
