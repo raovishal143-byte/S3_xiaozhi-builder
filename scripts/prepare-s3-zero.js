@@ -180,10 +180,23 @@ const startupGreetingBlock = [
 if (appSource.includes(readySoundBlock)) {
   appSource = appSource.replace(readySoundBlock, startupGreetingBlock);
 } else if (appSource.includes('static bool startup_greeting_triggered = false;')) {
-  const oldStart = appSource.indexOf('    // This static latch is initialized once per boot');
-  const oldEnd = appSource.indexOf('\n    }', oldStart) + 6;
-  if (oldStart < 0 || oldEnd < 6) throw new Error('Could not locate previous startup greeting patch');
-  appSource = appSource.slice(0, oldStart) + startupGreetingBlock.slice(startupGreetingBlock.indexOf("[\n") + 2, startupGreetingBlock.lastIndexOf("]);')) + appSource.slice(oldEnd);
+  const oldStartupGreetingBlock = [
+    '    // This static latch is initialized once per boot, even if activation completes again.',
+    '    static bool startup_greeting_triggered = false;',
+    '    if (!startup_greeting_triggered) {',
+    '        startup_greeting_triggered = true;',
+    '        Schedule([this]() {',
+    '            // Finish the ready sound before opening the one startup greeting session.',
+    '            audio_service_.PlaySound(Lang::Sounds::OGG_SUCCESS);',
+    '            while (!audio_service_.IsPlaybackIdle()) {',
+    '                vTaskDelay(pdMS_TO_TICKS(50));',
+    '            }',
+    '            WakeWordInvoke("Jarvis");',
+    '        });',
+    '    }'
+  ].join(String.fromCharCode(10));
+  if (!appSource.includes(oldStartupGreetingBlock)) throw new Error('Could not locate previous startup greeting patch');
+  appSource = appSource.replace(oldStartupGreetingBlock, startupGreetingBlock);
 } else if (!appSource.includes('pending_startup_greeting_ = true;')) {
   throw new Error('Could not safely add the startup greeting trigger');
 }
