@@ -60,4 +60,4 @@ main().catch(err => {
   process.exitCode = 1;
 });
 
-// Workflow trigger: harmless comment-only update for the Audius smoke test.
+// Default workflow query is Shape of You; pass a CLI argument to test another title.
