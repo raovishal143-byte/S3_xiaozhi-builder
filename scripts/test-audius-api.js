@@ -3,11 +3,6 @@
 const query = process.argv.slice(2).join(" ").trim() || "Tum Hi Ho";
 const base = "https://api.audius.co/v1";
 
-function fail(message) {
-  console.error("FAIL:", message);
-  process.exitCode = 1;
-}
-
 async function main() {
   const searchUrl = new URL(base + "/tracks/search");
   searchUrl.searchParams.set("query", query);
@@ -50,8 +45,17 @@ async function main() {
   if (!/audio|octet-stream/i.test(contentType)) {
     console.log("WARNING: response content type is not recognisably audio; inspect before firmware integration.");
   }
-  if (stream.body) await stream.body.cancel();
+  if (stream.body) {
+    const reader = stream.body.getReader();
+    const first = await reader.read();
+    console.log("First audio payload bytes:", first.value?.byteLength || 0);
+    await reader.cancel();
+    if (!first.value?.byteLength) throw new Error("Stream returned no audio payload bytes");
+  }
   console.log("PASS: Audius search and stream endpoint responded. This does not yet prove ESP32 decoder compatibility or catalogue rights for other tracks.");
 }
 
-main().catch(err => fail(err.message));
+main().catch(err => {
+  console.error("FAIL:", err.message);
+  process.exitCode = 1;
+});
