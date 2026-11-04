@@ -1,6 +1,3 @@
-# Build XiaoZhi ESP32 Firmware
-# Triggered manually via workflow_dispatch or via GitHub API
-
 name: Build XiaoZhi Firmware
 
 on:
@@ -10,22 +7,22 @@ on:
   workflow_dispatch:
     inputs:
       board:
-        description: 'Board type (directory name under main/boards/)'
+        description: 'Board type'
         required: true
         type: string
         default: 's3-zero'
       chip:
-        description: 'ESP32 chip target (esp32, esp32s3, esp32c3, esp32c5, esp32c6, esp32p4)'
+        description: 'ESP32 chip target'
         required: true
         type: string
         default: 'esp32s3'
       config_json:
-        description: 'Board config as JSON (pins, display, language, extra_pins)'
+        description: 'Board config as JSON'
         required: false
         type: string
         default: '{}'
       language:
-        description: 'UI language code'
+        description: 'UI language'
         required: false
         type: string
         default: 'en_US'
@@ -34,7 +31,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     steps:
       - name: Checkout with submodules
         uses: actions/checkout@v4
@@ -44,188 +40,78 @@ jobs:
       - name: Prepare custom Waveshare ESP32-S3-Zero board
         run: node scripts/prepare-s3-zero.js
 
-      - name: Generate board config
+      - name: Generate board config and enforce chip defaults
+        shell: bash
         run: |
-          echo "Using build_config.json"
           node scripts/generate-config.js build_config.json
-
-          echo "Applying ESP32-S3-Zero settings in the TARGET-specific defaults (these are read after the base defaults)"
           TARGET_DEFAULTS="xiaozhi-esp32/sdkconfig.defaults.esp32s3"
           test -f "$TARGET_DEFAULTS"
 
-          # The upstream ESP32-S3 defaults select 16MB flash and Octal PSRAM.
-          # Override those settings in sdkconfig.defaults.esp32s3, not only the base file.
+          # Override upstream S3 defaults (16MB flash + Octal PSRAM).
           sed -i '/^CONFIG_ESPTOOLPY_FLASHSIZE_/d;/^# CONFIG_ESPTOOLPY_FLASHSIZE_/d;/^CONFIG_ESPTOOLPY_FLASHSIZE=/d' "$TARGET_DEFAULTS"
-          printf '\\n# Waveshare ESP32-S3-Zero: ESP32-S3FH4R2, 4MB flash + 2MB Quad PSRAM\\n' >> "$TARGET_DEFAULTS"
+          printf '\n# Waveshare ESP32-S3-Zero: 4MB flash and Quad PSRAM\n' >> "$TARGET_DEFAULTS"
           echo "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y" >> "$TARGET_DEFAULTS"
           echo 'CONFIG_ESPTOOLPY_FLASHSIZE="4MB"' >> "$TARGET_DEFAULTS"
 
-          sed -i '/^CONFIG_SPIRAM_MODE_OCT=y$/d;/^# CONFIG_SPIRAM_MODE_OCT is not set$/d;/^CONFIG_SPIRAM_MODE_QUAD=y$/d;/^CONFIG_SPIRAM_MODE_/d' "$TARGET_DEFAULTS"
+          sed -i '/^CONFIG_SPIRAM_MODE_/d;/^# CONFIG_SPIRAM_MODE_/d' "$TARGET_DEFAULTS"
           echo "CONFIG_SPIRAM=y" >> "$TARGET_DEFAULTS"
           echo "# CONFIG_SPIRAM_MODE_OCT is not set" >> "$TARGET_DEFAULTS"
           echo "CONFIG_SPIRAM_MODE_QUAD=y" >> "$TARGET_DEFAULTS"
           echo "CONFIG_SPIRAM_SPEED_80M=y" >> "$TARGET_DEFAULTS"
 
-          # Remove any stale generated sdkconfig so ESP-IDF resolves the edited defaults.
           rm -f xiaozhi-esp32/sdkconfig
           rm -rf xiaozhi-esp32/build
+          echo "=== S3 target defaults ==="
+          grep -E 'FLASHSIZE|SPIRAM_MODE|SPIRAM_SPEED' "$TARGET_DEFAULTS"
 
-          echo "=== Effective ESP32-S3 target defaults ==="
-          grep -E 'FLASHSIZE|SPIRAM|FLASHMODE' "$TARGET_DEFAULTS"
-
-      - name: Verify generated config
+      - name: Verify board configuration
         run: |
-          echo "=== config.h (first 60 lines) ==="
-          head -60 xiaozhi-esp32/main/boards/${{ inputs.board || 's3-zero' }}/config.h
-          echo ""
-          echo "=== sdkconfig.defaults (last 30 lines) ==="
-          tail -30 xiaozhi-esp32/sdkconfig.defaults
-          echo ""
-          echo "=== sdkconfig.defaults line count ==="
-          wc -l xiaozhi-esp32/sdkconfig.defaults
+          head -60 xiaozhi-esp32/main/boards/s3-zero/config.h
+          tail -20 xiaozhi-esp32/sdkconfig.defaults
+          tail -20 xiaozhi-esp32/sdkconfig.defaults.esp32s3
 
       - name: Build firmware (ESP-IDF v6.0.2)
         uses: espressif/esp-idf-ci-action@v1
         with:
           esp_idf_version: v6.0.2
-          target: ${{ inputs.chip || 'esp32s3' }}
+          target: esp32s3
           path: xiaozhi-esp32
 
-      - name: Show build logs if failed
-        if: failure()
-        run: |
-          echo "=== Build output (last 200 lines) ==="
-          tail -200 xiaozhi-esp32/build/log/idf_py_stdout_output_* 2>/dev/null || echo "No stdout log"
-          echo "=== Build errors ==="
-          tail -200 xiaozhi-esp32/build/log/idf_py_stderr_output_* 2>/dev/null || echo "No stderr log"
-
-      - name: Collect build artifacts
+      - name: Collect and verify firmware artifacts
         if: success()
+        shell: bash
         run: |
           mkdir -p output
-          cp xiaozhi-esp32/build/*.bin output/ 2>/dev/null || true
+          cp xiaozhi-esp32/build/*.bin output/
           cp xiaozhi-esp32/build/bootloader/*.bin output/ 2>/dev/null || true
           cp xiaozhi-esp32/build/partition_table/*.bin output/ 2>/dev/null || true
-
-          # Preserve ESP-IDF's authoritative flash offsets and command arguments.
-          cp xiaozhi-esp32/build/flasher_args.json output/ 2>/dev/null || true
+          cp xiaozhi-esp32/build/flasher_args.json output/
           cp xiaozhi-esp32/build/flash_args output/ 2>/dev/null || true
           cp xiaozhi-esp32/build/flash_project_args output/ 2>/dev/null || true
+          cp xiaozhi-esp32/sdkconfig output/sdkconfig.txt
+          cp xiaozhi-esp32/main/boards/s3-zero/config.h output/
 
-          cp xiaozhi-esp32/sdkconfig output/sdkconfig.txt 2>/dev/null || true
-          cp xiaozhi-esp32/main/boards/${{ inputs.board || 's3-zero' }}/config.h output/ 2>/dev/null || true
-
-          echo "=== Flash metadata check ==="
-          if [ ! -s output/flasher_args.json ]; then
-            echo "ERROR: ESP-IDF flasher_args.json was not generated or copied."
-            echo "Available flash-related files:"
-            find xiaozhi-esp32/build -maxdepth 2 -type f \( -name '*flash*args*' -o -name 'flasher_args.json' \) -print
-            exit 1
-          fi
-          echo "Verified output/flasher_args.json"
+          echo "=== Flash metadata ==="
           cat output/flasher_args.json
-
-          echo "=== Enforcing Waveshare S3-Zero silicon settings ==="
-          grep -q '"flash_size"[[:space:]]*:[[:space:]]*"4MB"' output/flasher_args.json || { echo "ERROR: flasher metadata is not 4MB"; exit 1; }
-          grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE="4MB"$' output/sdkconfig.txt || { echo "ERROR: sdkconfig is not 4MB"; exit 1; }
-          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' output/sdkconfig.txt || { echo "ERROR: Quad PSRAM is not enabled"; exit 1; }
-          if grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' output/sdkconfig.txt; then echo "ERROR: Octal PSRAM is still enabled"; exit 1; fi
-          echo "PASS: 4MB flash + Quad PSRAM verified."
-
-          echo "=== Collected output files ==="
+          grep -q '"flash_size"[[:space:]]*:[[:space:]]*"4MB"' output/flasher_args.json
+          grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE="4MB"$' output/sdkconfig.txt
+          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' output/sdkconfig.txt
+          echo "PASS: 4MB flash and Quad PSRAM verified."
           ls -la output/
 
       - name: Upload firmware
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: xiaozhi-firmware-${{ inputs.board || 's3-zero' }}-${{ inputs.chip || 'esp32s3' }}
+          name: xiaozhi-firmware-s3-zero-esp32s3
           path: output/
           retention-days: 90
 
       - name: Build summary
         if: success()
         run: |
-          FW_SIZE=$(du -sh xiaozhi-esp32/build/*.bin 2>/dev/null | head -1 | cut -f1 || echo "unknown")
-          echo "### ✅ Firmware Built :rocket:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Board:** ${{ inputs.board || 's3-zero' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
-          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
- output/sdkconfig.txt || { echo "ERROR: sdkconfig is not 4MB"; exit 1; }
-          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y
-          ls -la output/
-
-      - name: Upload firmware
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: xiaozhi-firmware-${{ inputs.board || 's3-zero' }}-${{ inputs.chip || 'esp32s3' }}
-          path: output/
-          retention-days: 90
-
-      - name: Build summary
-        if: success()
-        run: |
-          FW_SIZE=$(du -sh xiaozhi-esp32/build/*.bin 2>/dev/null | head -1 | cut -f1 || echo "unknown")
-          echo "### ✅ Firmware Built :rocket:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Board:** ${{ inputs.board || 's3-zero' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
-          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
- output/sdkconfig.txt || { echo "ERROR: Quad PSRAM is not enabled"; exit 1; }
-          if grep -q '^CONFIG_SPIRAM_MODE_OCT=y
-          ls -la output/
-
-      - name: Upload firmware
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: xiaozhi-firmware-${{ inputs.board || 's3-zero' }}-${{ inputs.chip || 'esp32s3' }}
-          path: output/
-          retention-days: 90
-
-      - name: Build summary
-        if: success()
-        run: |
-          FW_SIZE=$(du -sh xiaozhi-esp32/build/*.bin 2>/dev/null | head -1 | cut -f1 || echo "unknown")
-          echo "### ✅ Firmware Built :rocket:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Board:** ${{ inputs.board || 's3-zero' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
-          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
- output/sdkconfig.txt; then echo "ERROR: Octal PSRAM is still enabled"; exit 1; fi
-          echo "PASS: 4MB flash + Quad PSRAM verified."
-
-          echo "=== Collected output files ==="
-          ls -la output/
-
-      - name: Upload firmware
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: xiaozhi-firmware-${{ inputs.board || 's3-zero' }}-${{ inputs.chip || 'esp32s3' }}
-          path: output/
-          retention-days: 90
-
-      - name: Build summary
-        if: success()
-        run: |
-          FW_SIZE=$(du -sh xiaozhi-esp32/build/*.bin 2>/dev/null | head -1 | cut -f1 || echo "unknown")
-          echo "### ✅ Firmware Built :rocket:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Board:** ${{ inputs.board || 's3-zero' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
-          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "### Firmware Built" >> $GITHUB_STEP_SUMMARY
+          echo "- Board: Waveshare ESP32-S3-Zero" >> $GITHUB_STEP_SUMMARY
+          echo "- Flash: 4MB" >> $GITHUB_STEP_SUMMARY
+          echo "- PSRAM: Quad, 80MHz" >> $GITHUB_STEP_SUMMARY
