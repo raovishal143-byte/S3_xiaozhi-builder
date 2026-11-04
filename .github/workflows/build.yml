@@ -31,7 +31,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout with submodules
         uses: actions/checkout@v4
@@ -41,20 +41,20 @@ jobs:
       - name: Prepare custom Waveshare ESP32-S3-Zero board
         run: node scripts/prepare-s3-zero.js
 
-      - name: Generate board config and enforce chip defaults
+      - name: Generate board config and enforce safe 4MB defaults
         shell: bash
         run: |
+          set -euo pipefail
           node scripts/generate-config.js build_config.json
           TARGET_DEFAULTS="xiaozhi-esp32/sdkconfig.defaults.esp32s3"
           test -f "$TARGET_DEFAULTS"
 
-          # Waveshare ESP32-S3-Zero: 4MB flash and 2MB Quad PSRAM.
+          # Physical board: Waveshare ESP32-S3-Zero, 4MB flash, 2MB Quad PSRAM.
           sed -i '/^CONFIG_ESPTOOLPY_FLASHSIZE_/d;/^# CONFIG_ESPTOOLPY_FLASHSIZE_/d;/^CONFIG_ESPTOOLPY_FLASHSIZE=/d' "$TARGET_DEFAULTS"
           printf '\n# Waveshare ESP32-S3-Zero: 4MB flash and Quad PSRAM\n' >> "$TARGET_DEFAULTS"
           echo "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y" >> "$TARGET_DEFAULTS"
           echo 'CONFIG_ESPTOOLPY_FLASHSIZE="4MB"' >> "$TARGET_DEFAULTS"
 
-          # XiaoZhi source includes this 4MB partition layout.
           sed -i '/^CONFIG_PARTITION_TABLE_CUSTOM=/d;/^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=/d' "$TARGET_DEFAULTS"
           echo "CONFIG_PARTITION_TABLE_CUSTOM=y" >> "$TARGET_DEFAULTS"
           echo 'CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/4m.csv"' >> "$TARGET_DEFAULTS"
@@ -66,24 +66,30 @@ jobs:
           echo "CONFIG_SPIRAM_MODE_QUAD=y" >> "$TARGET_DEFAULTS"
           echo "CONFIG_SPIRAM_SPEED_80M=y" >> "$TARGET_DEFAULTS"
 
-          # English MultiNet model and custom Hey Buddy wake phrase.
-          echo "CONFIG_USE_CUSTOM_WAKE_WORD=y" >> "$TARGET_DEFAULTS"
-          echo 'CONFIG_CUSTOM_WAKE_WORD="hey buddy"' >> "$TARGET_DEFAULTS"
-          echo 'CONFIG_CUSTOM_WAKE_WORD_DISPLAY="Hey Buddy"' >> "$TARGET_DEFAULTS"
-          echo "CONFIG_CUSTOM_WAKE_WORD_THRESHOLD=20" >> "$TARGET_DEFAULTS"
+          # Use the free, local Espressif WakeNet9 Jarvis model.
+          # Do not enable MultiNet custom wake words (they overflow this board's assets partition).
+          sed -i '/^CONFIG_USE_CUSTOM_WAKE_WORD=/d;/^CONFIG_CUSTOM_WAKE_WORD=/d;/^CONFIG_CUSTOM_WAKE_WORD_DISPLAY=/d;/^CONFIG_CUSTOM_WAKE_WORD_THRESHOLD=/d;/^CONFIG_SR_MN_/d;/^CONFIG_SR_WN_/d;/^CONFIG_USE_AFE_WAKE_WORD=/d;/^CONFIG_USE_ESP_WAKE_WORD=/d' "$TARGET_DEFAULTS"
+          echo "CONFIG_USE_AFE_WAKE_WORD=y" >> "$TARGET_DEFAULTS"
+          echo "CONFIG_SR_WN_WN9_JARVIS_TTS=y" >> "$TARGET_DEFAULTS"
           echo "CONFIG_SEND_WAKE_WORD_DATA=y" >> "$TARGET_DEFAULTS"
-          echo "CONFIG_SR_MN_EN_MULTINET6_QUANT=y" >> "$TARGET_DEFAULTS"
 
           rm -f xiaozhi-esp32/sdkconfig
           rm -rf xiaozhi-esp32/build
-          echo "=== S3 target defaults ==="
-          grep -E 'FLASHSIZE|PARTITION_TABLE|SPIRAM_MODE|SPIRAM_SPEED' "$TARGET_DEFAULTS"
+          echo "=== S3-Zero target defaults ==="
+          grep -E 'FLASHSIZE|PARTITION_TABLE|SPIRAM_MODE|SPIRAM_SPEED|WAKE_WORD|SR_WN_|SR_MN_' "$TARGET_DEFAULTS"
 
-      - name: Verify board configuration
+      - name: Verify selected model exists in ESP-SR dependency
+        shell: bash
         run: |
-          head -60 xiaozhi-esp32/main/boards/s3-zero/config.h
-          tail -20 xiaozhi-esp32/sdkconfig.defaults
-          tail -20 xiaozhi-esp32/sdkconfig.defaults.esp32s3
+          set -euo pipefail
+          MODEL_INFO="xiaozhi-esp32/managed_components/espressif__esp-sr/model/wakenet_model/wn9_jarvis_tts/_MODEL_INFO_"
+          if [ ! -f "$MODEL_INFO" ]; then
+            echo "FAIL: ESP-SR 2.4.x dependency does not contain wn9_jarvis_tts"
+            find xiaozhi-esp32/managed_components -maxdepth 5 -iname '*jarvis*' -print || true
+            exit 1
+          fi
+          echo "PASS: Jarvis model is present in the resolved ESP-SR dependency"
+          cat "$MODEL_INFO"
 
       - name: Build firmware (ESP-IDF v6.0.2)
         uses: espressif/esp-idf-ci-action@v1
@@ -96,6 +102,7 @@ jobs:
         if: success()
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p output
           cp xiaozhi-esp32/build/*.bin output/
           cp xiaozhi-esp32/build/bootloader/*.bin output/ 2>/dev/null || true
@@ -106,83 +113,64 @@ jobs:
           cp xiaozhi-esp32/sdkconfig output/sdkconfig.txt
           cp xiaozhi-esp32/main/boards/s3-zero/config.h output/
 
-          echo "=== Flash metadata ==="
-          cat output/flasher_args.json
-          grep -q '"flash_size"[[:space:]]*:[[:space:]]*"4MB"' output/flasher_args.json
-          grep -q '^CONFIG_PARTITION_TABLE_CUSTOM=y$' output/sdkconfig.txt
-          grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/4m.csv"$' output/sdkconfig.txt
+          echo "=== Resolved wake-word and flash settings ==="
+          grep -E '^(CONFIG_USE_AFE_WAKE_WORD|CONFIG_SR_WN_WN9_JARVIS_TTS|CONFIG_SEND_WAKE_WORD_DATA|CONFIG_ESPTOOLPY_FLASHSIZE|CONFIG_PARTITION_TABLE_CUSTOM_FILENAME|CONFIG_SPIRAM_MODE_QUAD)=' output/sdkconfig.txt
+          grep -q '^CONFIG_USE_AFE_WAKE_WORD=y$' output/sdkconfig.txt
+          grep -q '^CONFIG_SR_WN_WN9_JARVIS_TTS=y$' output/sdkconfig.txt
+          grep -q '^CONFIG_SEND_WAKE_WORD_DATA=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_USE_CUSTOM_WAKE_WORD=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_SR_MN_' output/sdkconfig.txt
           grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE="4MB"$' output/sdkconfig.txt
+          grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/4m.csv"$' output/sdkconfig.txt
           grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' output/sdkconfig.txt
           ! grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' output/sdkconfig.txt
-          grep -q '^CONFIG_USE_CUSTOM_WAKE_WORD=y$' output/sdkconfig.txt
-          grep -q '^CONFIG_CUSTOM_WAKE_WORD="hey buddy"$' output/sdkconfig.txt
-          grep -q '^CONFIG_CUSTOM_WAKE_WORD_DISPLAY="Hey Buddy"$' output/sdkconfig.txt
-          grep -q '^CONFIG_SR_MN_EN_MULTINET6_QUANT=y
-      - name: Upload firmware
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: xiaozhi-firmware-s3-zero-esp32s3
-          path: output/
-          retention-days: 90
 
-      - name: Build summary
-        if: success()
-        run: |
-          echo "### Firmware Built" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Board: Waveshare ESP32-S3-Zero" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Flash: 4MB" >> "$GITHUB_STEP_SUMMARY"
-          echo "- PSRAM: Quad, 80MHz" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Partition layout: partitions/v2/4m.csv" >> "$GITHUB_STEP_SUMMARY"
- output/sdkconfig.txt
-
-          # Hard safety gate: never publish an artifact whose binaries exceed
-          # the physical 4MB flash or the named partition boundaries.
+          # Hard gate: each image must fit the physical 4MB flash and its partition.
           python3 - <<'PY'
-          import json, pathlib, sys
+          import json, pathlib, hashlib
           meta = json.loads(pathlib.Path("output/flasher_args.json").read_text())
           files = meta["flash_files"]
           limits = {
-              "0x0": 0x8000,
-              "0x8000": 0x1000,
-              "0xd000": 0x2000,
-              "0x10000": 0x2f0000,
-              "0x300000": 0x100000,
+              0x0: 0x8000,
+              0x8000: 0x1000,
+              0xd000: 0x2000,
+              0x10000: 0x2f0000,
+              0x300000: 0x100000,
           }
           flash_end = 0x400000
+          if not files:
+              raise SystemExit("FAIL: no flash_files in flasher_args.json")
           for offset_text, filename in files.items():
               offset = int(offset_text, 16)
               path = pathlib.Path("output") / pathlib.Path(filename).name
               if not path.is_file():
                   raise SystemExit(f"FAIL: missing flash file {path}")
-              end = offset + path.stat().st_size
+              size = path.stat().st_size
+              end = offset + size
               if end > flash_end:
-                  raise SystemExit(
-                      f"FAIL: {path.name} ends at 0x{end:X}, beyond 4MB flash"
-                  )
-              if offset_text in limits and path.stat().st_size > limits[offset_text]:
-                  raise SystemExit(
-                      f"FAIL: {path.name} is {path.stat().st_size} bytes; "
-                      f"partition limit is {limits[offset_text]} bytes"
-                  )
-              print(f"PASS: {path.name} at 0x{offset:X}, {path.stat().st_size} bytes")
+                  raise SystemExit(f"FAIL: {path.name} ends at 0x{end:X}, beyond 4MB flash")
+              if offset in limits and size > limits[offset]:
+                  raise SystemExit(f"FAIL: {path.name} is {size} bytes; partition limit is {limits[offset]} bytes")
+              print(f"PASS: {path.name} at 0x{offset:X}, {size} bytes, sha256={hashlib.sha256(path.read_bytes()).hexdigest()}")
           PY
-          echo "PASS: 4MB flash, partition boundaries and Quad PSRAM verified."
-          ls -la output/
+          sha256sum output/*.bin | tee output/SHA256SUMS.txt
+          echo "PASS: Jarvis selected; 4MB flash and partition boundaries verified."
+          ls -lah output/
 
-      - name: Upload firmware
+      - name: Upload verified firmware
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: xiaozhi-firmware-s3-zero-esp32s3
+          name: xiaozhi-firmware-s3-zero-jarvis
           path: output/
           retention-days: 90
 
       - name: Build summary
         if: success()
         run: |
-          echo "### Firmware Built" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Jarvis firmware build completed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Board: Waveshare ESP32-S3-Zero" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Flash: 4MB" >> "$GITHUB_STEP_SUMMARY"
-          echo "- PSRAM: Quad, 80MHz" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Wake word: Jarvis (offline WakeNet9)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Flash: 4MB; PSRAM: Quad 80MHz" >> "$GITHUB_STEP_SUMMARY"
           echo "- Partition layout: partitions/v2/4m.csv" >> "$GITHUB_STEP_SUMMARY"
+          echo "- MultiNet custom wake word: disabled" >> "$GITHUB_STEP_SUMMARY"
