@@ -10,7 +10,7 @@ on:
         description: 'Board type (directory name under main/boards/)'
         required: true
         type: string
-        default: 'bread-compact-wifi'
+        default: 's3-zero'
       chip:
         description: 'ESP32 chip target (esp32, esp32s3, esp32c3, esp32c5, esp32c6, esp32p4)'
         required: true
@@ -38,6 +38,9 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Prepare custom Waveshare ESP32-S3-Zero board
+        run: node scripts/prepare-s3-zero.js
+
       - name: Generate board config
         run: |
           echo "Using build_config.json"
@@ -49,8 +52,7 @@ jobs:
           echo "# CONFIG_ESPTOOLPY_FLASHSIZE_16MB is not set" >> xiaozhi-esp32/sdkconfig.defaults
           echo "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y" >> xiaozhi-esp32/sdkconfig.defaults
 
-          echo "Checking Octal PSRAM settings"
-          grep -E 'CONFIG_SPIRAM=|CONFIG_SPIRAM_MODE_OCT=|CONFIG_SPIRAM_SPEED_80M=' xiaozhi-esp32/sdkconfig.defaults
+          echo "Flash size set to 4MB. PSRAM mode is left to the ESP-IDF defaults for this chip."
 
       - name: Verify generated config
         run: |
