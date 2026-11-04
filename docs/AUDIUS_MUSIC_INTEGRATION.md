@@ -27,6 +27,24 @@ Official API base: https://api.audius.co/v1
 
 The client must use only the official Audius endpoints, respect track access restrictions and response redirects, and never scrape other music services or extract audio from YouTube/Spotify.
 
+## Decoder feasibility audit (verified against the pinned XiaoZhi source)
+
+The pinned XiaoZhi submodule already declares `espressif/esp_audio_codec: ~2.5.0`. Espressif's `esp_audio_codec` includes the MP3 decoder and a Simple Decoder API that accepts arbitrary-sized MP3 stream chunks, performs frame parsing, and returns PCM. Its Kconfig sets MP3 decoder support to enabled by default. Therefore, do not add ESP-ADF wholesale and do not add a second MP3 decoder library.
+
+Relevant API family:
+- `esp_audio_dec_register_default()`
+- `esp_audio_simple_dec_register_default()`
+- `esp_audio_simple_dec_open()` with `ESP_AUDIO_SIMPLE_DEC_TYPE_MP3`
+- `esp_audio_simple_dec_process()`
+- `esp_audio_simple_dec_get_info()`
+- `esp_audio_simple_dec_close()`
+
+The Simple Decoder is streaming-only (no seeking). A music seek/previous implementation must therefore restart a track or use provider-supported stream offsets; do not promise arbitrary seek.
+
+**Critical output constraint:** XiaoZhi's existing `AudioService::AudioOutputTask()` is the single current writer that calls `AudioCodec::OutputData()` for decoded voice. Music must not write directly to the same I2S codec concurrently. The firmware implementation must add a shared output arbitration/queue so voice prompts and music PCM are serialized, with clear priority and cancellation rules. The existing Opus decode path must remain intact.
+
+The upstream component's published MP3 resource figures are reference measurements, not a guarantee for this board or this build. The final 4 MB image, runtime heap, decoder stack, and PSRAM/internal-RAM allocations must be measured in the actual S3-Zero build.
+
 ## Device-side architecture
 
 1. XiaoZhi remains responsible for speech recognition, understanding the request, and choosing the music action.
@@ -50,13 +68,14 @@ The client must use only the official Audius endpoints, respect track access res
 - Do not adopt another board's 16 MB / Octal-PSRAM sdkconfig or partition table.
 - Prefer a small MP3 decoder already available in the resolved ESP-IDF/XiaoZhi dependency graph. Do not add ESP-ADF wholesale unless the final image and RAM use are measured and fit.
 - Avoid large static buffers; use bounded streaming buffers and check internal RAM/PSRAM allocations.
-- The current XiaoZhi AudioService receives/plays Opus conversation packets. It does not expose a public arbitrary-MP3 streaming API, so a separate, carefully coordinated music output path is required.
+- The current XiaoZhi AudioService receives/plays Opus conversation packets. The pinned dependency includes a streaming MP3 Simple Decoder, but AudioService has no music API; music must be integrated through a shared serialized PCM output path.
 
 ## Implementation gates (no flashing until all pass)
 
 ### Gate A — API validation
-- Confirm search response schema and exact track IDs for a test query.
-- Confirm stream endpoint returns an MP3 response/redirect accessible to the device.
+- [x] Confirm Audius search response and a streamable track ID for test queries (Tum Hi Ho and Shape of You; exact/original recording not guaranteed).
+- [x] Confirm stream endpoint returns an MP3 response/redirect with audio bytes.
+- [x] Confirm the pinned XiaoZhi dependency already includes Espressif's MP3 Simple Decoder; no extra decoder dependency is needed.
 - Confirm missing/blocked tracks fail cleanly.
 - Check Audius developer terms and track-level access/rights; do not imply that all catalogue content is cleared for every use.
 
@@ -83,4 +102,6 @@ The client must use only the official Audius endpoints, respect track access res
 - A separate branch `feature/audius-music-player` has been created from the existing Jarvis build branch.
 - This document records the safe integration plan.
 - No firmware source has been changed for music yet, no new firmware has been built, and nothing has been flashed.
-- Audius API documentation confirms search/stream endpoints and a free developer tier. Real song availability and ESP32 stream compatibility still require live validation.
+- Audius search and MP3 stream smoke tests passed for Tum Hi Ho and Shape of You queries. Returned matches included covers/remixes/instrumentals; original commercial recordings are not confirmed.
+- Pinned XiaoZhi source already includes Espressif ESP Audio Codec ~2.5.0 with MP3 Simple Decoder support enabled by default.
+- No music firmware source has been changed, no music firmware has been built, and nothing has been flashed. The next implementation task is shared audio-output arbitration plus the Audius streaming/decode task.
