@@ -170,14 +170,19 @@ const readySoundBlock = [
   '    });'
 ].join(String.fromCharCode(10));
 const startupGreetingBlock = [
-  '    Schedule([this]() {',
-  '        // Finish the ready sound before opening the automatic greeting session.',
-  '        audio_service_.PlaySound(Lang::Sounds::OGG_SUCCESS);',
-  '        while (!audio_service_.IsPlaybackIdle()) {',
-  '            vTaskDelay(pdMS_TO_TICKS(50));',
-  '        }',
-  '        WakeWordInvoke("Jarvis");',
-  '    });'
+  '    // This static latch is initialized once per boot, even if activation completes again.',
+  '    static bool startup_greeting_triggered = false;',
+  '    if (!startup_greeting_triggered) {',
+  '        startup_greeting_triggered = true;',
+  '        Schedule([this]() {',
+  '            // Finish the ready sound before opening the one startup greeting session.',
+  '            audio_service_.PlaySound(Lang::Sounds::OGG_SUCCESS);',
+  '            while (!audio_service_.IsPlaybackIdle()) {',
+  '                vTaskDelay(pdMS_TO_TICKS(50));',
+  '            }',
+  '            WakeWordInvoke("Jarvis");',
+  '        });',
+  '    }'
 ].join(String.fromCharCode(10));
 if (appSource.includes(readySoundBlock)) {
   appSource = appSource.replace(readySoundBlock, startupGreetingBlock);
