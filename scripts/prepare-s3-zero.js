@@ -105,4 +105,28 @@ if (!cmake.includes('CONFIG_BOARD_TYPE_S3_ZERO')) {
     cmake.slice(pos);
   fs.writeFileSync(cmakePath, cmake);
 }
+
+const ledSourcePath = path.join(root, 'main', 'led', 'gpio_led.cc');
+let ledSource = fs.readFileSync(ledSourcePath, 'utf8');
+const steadySpeaking = `        case kDeviceStateSpeaking:
+        case kDeviceStateNotifying:
+            SetBrightness(SPEAKING_BRIGHTNESS);
+            TurnOn();
+            break;`;
+const blinkingSpeaking = `        case kDeviceStateSpeaking:
+            // Blink the external GPIO2 LED while AI audio is being played.
+            SetBrightness(SPEAKING_BRIGHTNESS);
+            StartContinuousBlink(180);
+            break;
+        case kDeviceStateNotifying:
+            SetBrightness(SPEAKING_BRIGHTNESS);
+            TurnOn();
+            break;`;
+if (ledSource.includes(steadySpeaking)) {
+  ledSource = ledSource.replace(steadySpeaking, blinkingSpeaking);
+  fs.writeFileSync(ledSourcePath, ledSource);
+} else if (!ledSource.includes('Blink the external GPIO2 LED while AI audio is being played')) {
+  throw new Error('Could not safely locate the GPIO LED speaking-state handler; refusing to patch.');
+}
+
 console.log('Prepared custom Waveshare ESP32-S3-Zero board (no display).');
