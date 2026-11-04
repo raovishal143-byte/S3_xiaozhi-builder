@@ -78,25 +78,26 @@ jobs:
           echo "=== S3-Zero target defaults ==="
           grep -E 'FLASHSIZE|PARTITION_TABLE|SPIRAM_MODE|SPIRAM_SPEED|WAKE_WORD|SR_WN_|SR_MN_' "$TARGET_DEFAULTS"
 
-      - name: Verify selected model exists in ESP-SR dependency
-        shell: bash
-        run: |
-          set -euo pipefail
-          MODEL_INFO="xiaozhi-esp32/managed_components/espressif__esp-sr/model/wakenet_model/wn9_jarvis_tts/_MODEL_INFO_"
-          if [ ! -f "$MODEL_INFO" ]; then
-            echo "FAIL: ESP-SR 2.4.x dependency does not contain wn9_jarvis_tts"
-            find xiaozhi-esp32/managed_components -maxdepth 5 -iname '*jarvis*' -print || true
-            exit 1
-          fi
-          echo "PASS: Jarvis model is present in the resolved ESP-SR dependency"
-          cat "$MODEL_INFO"
-
       - name: Build firmware (ESP-IDF v6.0.2)
         uses: espressif/esp-idf-ci-action@v1
         with:
           esp_idf_version: v6.0.2
           target: esp32s3
           path: xiaozhi-esp32
+
+      - name: Verify selected model exists in resolved ESP-SR dependency
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          MODEL_INFO="xiaozhi-esp32/managed_components/espressif__esp-sr/model/wakenet_model/wn9_jarvis_tts/_MODEL_INFO_"
+          if [ ! -f "$MODEL_INFO" ]; then
+            echo "FAIL: resolved ESP-SR dependency does not contain wn9_jarvis_tts"
+            find xiaozhi-esp32/managed_components -maxdepth 6 -iname '*jarvis*' -print || true
+            exit 1
+          fi
+          echo "PASS: Jarvis model is present in the resolved ESP-SR dependency"
+          cat "$MODEL_INFO"
 
       - name: Collect and verify firmware artifacts
         if: success()
