@@ -25,7 +25,7 @@ on:
         description: 'UI language code'
         required: false
         type: string
-        default: 'vi_VN'
+        default: 'en_US'
 
 jobs:
   build:
@@ -40,13 +40,17 @@ jobs:
 
       - name: Generate board config
         run: |
-          if [ -f build_config.json ]; then
-            echo "Using build_config.json from repo"
-            node scripts/generate-config.js build_config.json
-          else
-            echo '${{ inputs.config_json }}' > /tmp/config.json
-            node scripts/generate-config.js /tmp/config.json
-          fi
+          echo "Using build_config.json"
+          node scripts/generate-config.js build_config.json
+
+          echo "Applying ESP32-S3-Zero 4MB Flash setting"
+          sed -i '/^CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y$/d' xiaozhi-esp32/sdkconfig.defaults
+          sed -i '/^# CONFIG_ESPTOOLPY_FLASHSIZE_16MB is not set$/d' xiaozhi-esp32/sdkconfig.defaults
+          echo "# CONFIG_ESPTOOLPY_FLASHSIZE_16MB is not set" >> xiaozhi-esp32/sdkconfig.defaults
+          echo "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y" >> xiaozhi-esp32/sdkconfig.defaults
+
+          echo "Checking Octal PSRAM settings"
+          grep -E 'CONFIG_SPIRAM=|CONFIG_SPIRAM_MODE_OCT=|CONFIG_SPIRAM_SPEED_80M=' xiaozhi-esp32/sdkconfig.defaults
 
       - name: Verify generated config
         run: |
@@ -99,6 +103,9 @@ jobs:
           FW_SIZE=$(du -sh xiaozhi-esp32/build/*.bin 2>/dev/null | head -1 | cut -f1 || echo "unknown")
           echo "### ✅ Firmware Built :rocket:" >> $GITHUB_STEP_SUMMARY
           echo "- **Board:** ${{ inputs.board }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Chip:** ${{ inputs.chip }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Language:** ${{ inputs.language }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
           echo "- **Chip:** ${{ inputs.chip }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Language:** ${{ inputs.language }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
