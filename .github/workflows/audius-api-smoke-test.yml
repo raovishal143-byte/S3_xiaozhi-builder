@@ -12,7 +12,7 @@ on:
       query:
         description: 'Song or artist to test'
         required: false
-        default: 'Tum Hi Ho'
+        default: 'Shape of You'
         type: string
 
 jobs:
