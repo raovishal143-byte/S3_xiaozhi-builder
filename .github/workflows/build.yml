@@ -55,12 +55,19 @@ jobs:
           echo "# CONFIG_ESPTOOLPY_FLASHSIZE_16MB is not set" >> xiaozhi-esp32/sdkconfig.defaults
           echo "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y" >> xiaozhi-esp32/sdkconfig.defaults
 
-          echo "Flash size set to 4MB. PSRAM mode is left to the ESP-IDF defaults for this chip."
+          echo "Selecting Quad PSRAM for ESP32-S3FH4R2 (2MB)"
+          sed -i '/^CONFIG_SPIRAM_MODE_OCT=y$/d' xiaozhi-esp32/sdkconfig.defaults
+          sed -i '/^# CONFIG_SPIRAM_MODE_OCT is not set$/d' xiaozhi-esp32/sdkconfig.defaults
+          sed -i '/^CONFIG_SPIRAM_MODE_QUAD=y$/d' xiaozhi-esp32/sdkconfig.defaults
+          echo "CONFIG_SPIRAM=y" >> xiaozhi-esp32/sdkconfig.defaults
+          echo "CONFIG_SPIRAM_MODE_QUAD=y" >> xiaozhi-esp32/sdkconfig.defaults
+          echo "CONFIG_SPIRAM_SPEED_80M=y" >> xiaozhi-esp32/sdkconfig.defaults
+          grep -E 'CONFIG_SPIRAM=|CONFIG_SPIRAM_MODE_QUAD=|CONFIG_SPIRAM_SPEED_80M=' xiaozhi-esp32/sdkconfig.defaults
 
       - name: Verify generated config
         run: |
           echo "=== config.h (first 60 lines) ==="
-          head -60 xiaozhi-esp32/main/boards/${{ inputs.board }}/config.h
+          head -60 xiaozhi-esp32/main/boards/${{ inputs.board || 's3-zero' }}/config.h
           echo ""
           echo "=== sdkconfig.defaults (last 30 lines) ==="
           tail -30 xiaozhi-esp32/sdkconfig.defaults
@@ -72,7 +79,7 @@ jobs:
         uses: espressif/esp-idf-ci-action@v1
         with:
           esp_idf_version: v6.0.2
-          target: ${{ inputs.chip }}
+          target: ${{ inputs.chip || 'esp32s3' }}
           path: xiaozhi-esp32
 
       - name: Show build logs if failed
@@ -91,14 +98,14 @@ jobs:
           cp xiaozhi-esp32/build/bootloader/*.bin output/ 2>/dev/null || true
           cp xiaozhi-esp32/build/partition_table/*.bin output/ 2>/dev/null || true
           cp xiaozhi-esp32/sdkconfig output/sdkconfig.txt 2>/dev/null || true
-          cp xiaozhi-esp32/main/boards/${{ inputs.board }}/config.h output/ 2>/dev/null || true
+          cp xiaozhi-esp32/main/boards/${{ inputs.board || 's3-zero' }}/config.h output/ 2>/dev/null || true
           ls -la output/
 
       - name: Upload firmware
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: xiaozhi-firmware-${{ inputs.board }}-${{ inputs.chip }}
+          name: xiaozhi-firmware-${{ inputs.board || 's3-zero' }}-${{ inputs.chip || 'esp32s3' }}
           path: output/
           retention-days: 90
 
@@ -107,10 +114,10 @@ jobs:
         run: |
           FW_SIZE=$(du -sh xiaozhi-esp32/build/*.bin 2>/dev/null | head -1 | cut -f1 || echo "unknown")
           echo "### ✅ Firmware Built :rocket:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Board:** ${{ inputs.board }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Chip:** ${{ inputs.chip }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Language:** ${{ inputs.language }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Board:** ${{ inputs.board || 's3-zero' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
-          echo "- **Chip:** ${{ inputs.chip }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Language:** ${{ inputs.language }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Chip:** ${{ inputs.chip || 'esp32s3' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Language:** ${{ inputs.language || 'en_US' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
