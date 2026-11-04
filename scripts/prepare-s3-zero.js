@@ -108,67 +108,82 @@ if (!cmake.includes('CONFIG_BOARD_TYPE_S3_ZERO')) {
 
 const ledSourcePath = path.join(root, 'main', 'led', 'gpio_led.cc');
 let ledSource = fs.readFileSync(ledSourcePath, 'utf8');
-const idleLed = `        case kDeviceStateIdle:
-            SetBrightness(IDLE_BRIGHTNESS);
-            TurnOn();
-            // TurnOff();
-            break;`;
-const idleLedOff = `        case kDeviceStateIdle:
-            TurnOff();
-            break;`;
-const listeningLed = `        case kDeviceStateListening:
-        case kDeviceStateAudioTesting:
-            if (app.IsVoiceDetected()) {
-                SetBrightness(HIGH_BRIGHTNESS);
-            } else {
-                SetBrightness(LOW_BRIGHTNESS);
-            }
-            // TurnOn();
-            StartFadeTask();
-            break;`;
-const listeningLedOff = `        case kDeviceStateListening:
-        case kDeviceStateAudioTesting:
-            TurnOff();
-            break;`;
-const steadySpeaking = `        case kDeviceStateSpeaking:
-        case kDeviceStateNotifying:
-            SetBrightness(SPEAKING_BRIGHTNESS);
-            TurnOn();
-            break;`;
-const blinkingSpeaking = `        case kDeviceStateSpeaking:
-        case kDeviceStateNotifying:
-            // Blink GPIO2 only while the assistant is playing voice audio.
-            SetBrightness(SPEAKING_BRIGHTNESS);
-            StartContinuousBlink(180);
-            break;`;
+const idleLed = [
+  "        case kDeviceStateIdle:",
+  "            SetBrightness(IDLE_BRIGHTNESS);",
+  "            TurnOn();",
+  "            // TurnOff();",
+  "            break;"
+].join("\n");
+const idleLedOff = [
+  "        case kDeviceStateIdle:",
+  "            TurnOff();",
+  "            break;"
+].join("\n");
+const listeningLed = [
+  "        case kDeviceStateListening:",
+  "        case kDeviceStateAudioTesting:",
+  "            if (app.IsVoiceDetected()) {",
+  "                SetBrightness(HIGH_BRIGHTNESS);",
+  "            } else {",
+  "                SetBrightness(LOW_BRIGHTNESS);",
+  "            }",
+  "            // TurnOn();",
+  "            StartFadeTask();",
+  "            break;"
+].join("\n");
+const listeningLedOff = [
+  "        case kDeviceStateListening:",
+  "        case kDeviceStateAudioTesting:",
+  "            TurnOff();",
+  "            break;"
+].join("\n");
+const steadySpeaking = [
+  "        case kDeviceStateSpeaking:",
+  "            SetBrightness(SPEAKING_BRIGHTNESS);",
+  "            TurnOn();",
+  "            break;"
+].join("\n");
+const blinkingSpeaking = [
+  "        case kDeviceStateSpeaking:",
+  "            // Blink GPIO2 only while the assistant is speaking.",
+  "            SetBrightness(SPEAKING_BRIGHTNESS);",
+  "            StartContinuousBlink(180);",
+  "            break;"
+].join("\n");
 if (ledSource.includes(idleLed)) ledSource = ledSource.replace(idleLed, idleLedOff);
-else if (!ledSource.includes('case kDeviceStateIdle:\n            TurnOff();')) throw new Error('Could not safely patch idle LED state');
+else if (!ledSource.includes("case kDeviceStateIdle:\\n            TurnOff();")) throw new Error("Could not safely patch idle LED state");
 if (ledSource.includes(listeningLed)) ledSource = ledSource.replace(listeningLed, listeningLedOff);
-else if (!ledSource.includes('case kDeviceStateListening:\n        case kDeviceStateAudioTesting:\n            TurnOff();')) throw new Error('Could not safely patch listening LED state');
+else if (!ledSource.includes("case kDeviceStateListening:\\n        case kDeviceStateAudioTesting:\\n            TurnOff();")) throw new Error("Could not safely patch listening LED state");
 if (ledSource.includes(steadySpeaking)) ledSource = ledSource.replace(steadySpeaking, blinkingSpeaking);
-else if (!ledSource.includes('Blink GPIO2 only while the assistant is playing voice audio')) throw new Error('Could not safely patch speaking LED state');
+else if (!ledSource.includes("Blink GPIO2 only while the assistant is speaking")) throw new Error("Could not safely patch speaking LED state");
 fs.writeFileSync(ledSourcePath, ledSource);
 
-// After Wi-Fi and XiaoZhi activation complete, open the first session automatically.
-// The server's greeting setting and agent role provide the spoken greeting.
-const appSourcePath = path.join(root, 'main', 'application.cc');
-let appSource = fs.readFileSync(appSourcePath, 'utf8');
-const activationMarker = `    if (!startup_completed_) {
-        startup_completed_ = true;
-        pending_startup_wake_word_hint_ = !has_error;
-    }`;
-const activationReplacement = `    if (!startup_completed_) {
-        startup_completed_ = true;
-        pending_startup_wake_word_hint_ = !has_error;
-        if (!has_error) {
-            Schedule([this]() { WakeWordInvoke("Hey Buddy"); });
-        }
-    }`;
-if (appSource.includes(activationMarker)) {
-  appSource = appSource.replace(activationMarker, activationReplacement);
+// Automatically open a first conversation after Wi-Fi and cloud activation.
+// The XiaoZhi server's greeting setting and the agent role provide the spoken text.
+const appSourcePath = path.join(root, "main", "application.cc");
+let appSource = fs.readFileSync(appSourcePath, "utf8");
+const readySoundBlock = [
+  "    Schedule([this]() {",
+  "        // Play the success sound to indicate the device is ready",
+  "        audio_service_.PlaySound(Lang::Sounds::OGG_SUCCESS);",
+  "    });"
+].join("\\n");
+const startupGreetingBlock = [
+  "    Schedule([this]() {",
+  "        // Finish the ready sound before opening the automatic greeting session.",
+  "        audio_service_.PlaySound(Lang::Sounds::OGG_SUCCESS);",
+  "        while (!audio_service_.IsPlaybackIdle()) {",
+  "            vTaskDelay(pdMS_TO_TICKS(50));",
+  "        }",
+  "        WakeWordInvoke(\\\"Hey Buddy\\\");",
+  "    });"
+].join("\\n");
+if (appSource.includes(readySoundBlock)) {
+  appSource = appSource.replace(readySoundBlock, startupGreetingBlock);
   fs.writeFileSync(appSourcePath, appSource);
-} else if (!appSource.includes('WakeWordInvoke("Hey Buddy")')) {
-  throw new Error('Could not safely add the one-time startup greeting trigger');
+} else if (!appSource.includes("WakeWordInvoke(\\\"Hey Buddy\\\")")) {
+  throw new Error("Could not safely add the startup greeting trigger");
 }
 
 console.log('Prepared custom Waveshare ESP32-S3-Zero board (no display).');
