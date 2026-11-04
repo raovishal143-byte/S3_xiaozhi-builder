@@ -115,12 +115,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p output
+          # Preserve the exact relative paths referenced by ESP-IDF flash manifests.
           cp xiaozhi-esp32/build/*.bin output/
-          cp xiaozhi-esp32/build/bootloader/*.bin output/ 2>/dev/null || true
-          cp xiaozhi-esp32/build/partition_table/*.bin output/ 2>/dev/null || true
+          mkdir -p output/bootloader output/partition_table
+          cp xiaozhi-esp32/build/bootloader/*.bin output/bootloader/
+          cp xiaozhi-esp32/build/partition_table/*.bin output/partition_table/
           cp xiaozhi-esp32/build/flasher_args.json output/
-          cp xiaozhi-esp32/build/flash_args output/ 2>/dev/null || true
-          cp xiaozhi-esp32/build/flash_project_args output/ 2>/dev/null || true
+          cp xiaozhi-esp32/build/flash_args output/
+          cp xiaozhi-esp32/build/flash_project_args output/
           cp xiaozhi-esp32/sdkconfig output/sdkconfig.txt
           cp xiaozhi-esp32/main/boards/s3-zero/config.h output/
 
@@ -136,33 +138,63 @@ jobs:
           grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' output/sdkconfig.txt
           ! grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' output/sdkconfig.txt
 
-          # Hard gate: each image must fit the physical 4MB flash and its partition.
+          # Hard gate: validate every referenced file in the final artifact layout,
+          # including nested bootloader/ and partition_table/ paths, and check flash bounds.
           python3 - <<'PY'
-          import json, pathlib, hashlib
-          meta = json.loads(pathlib.Path("output/flasher_args.json").read_text())
-          files = meta["flash_files"]
-          limits = {
-              0x0: 0x8000,
-              0x8000: 0x1000,
-              0xd000: 0x2000,
-              0x10000: 0x2f0000,
-              0x300000: 0x100000,
-          }
+          import json, pathlib, hashlib, shlex
+          root = pathlib.Path("output")
+          meta = json.loads((root / "flasher_args.json").read_text())
+          files = meta.get("flash_files", {})
+          limits = {0x0: 0x8000, 0x8000: 0x1000, 0xd000: 0x2000,
+                    0x10000: 0x2f0000, 0x300000: 0x100000}
           flash_end = 0x400000
           if not files:
               raise SystemExit("FAIL: no flash_files in flasher_args.json")
+          seen = set()
           for offset_text, filename in files.items():
               offset = int(offset_text, 16)
-              path = pathlib.Path("output") / pathlib.Path(filename).name
+              rel = pathlib.PurePosixPath(filename)
+              if rel.is_absolute() or ".." in rel.parts:
+                  raise SystemExit(f"FAIL: unsafe flash path {filename}")
+              path = root.joinpath(*rel.parts)
               if not path.is_file():
-                  raise SystemExit(f"FAIL: missing flash file {path}")
+                  raise SystemExit(f"FAIL: flasher_args.json references missing artifact: {filename}")
               size = path.stat().st_size
-              end = offset + size
-              if end > flash_end:
-                  raise SystemExit(f"FAIL: {path.name} ends at 0x{end:X}, beyond 4MB flash")
+              finish = offset + size
+              if finish > flash_end:
+                  raise SystemExit(f"FAIL: {filename} ends at 0x{finish:X}, beyond 4MB flash")
               if offset in limits and size > limits[offset]:
-                  raise SystemExit(f"FAIL: {path.name} is {size} bytes; partition limit is {limits[offset]} bytes")
-              print(f"PASS: {path.name} at 0x{offset:X}, {size} bytes, sha256={hashlib.sha256(path.read_bytes()).hexdigest()}")
+                  raise SystemExit(f"FAIL: {filename} is {size} bytes; partition limit is {limits[offset]} bytes")
+              seen.add(filename)
+              print(f"PASS: {filename} at 0x{offset:X}, {size} bytes, sha256={hashlib.sha256(path.read_bytes()).hexdigest()}")
+
+          # Parse the offset/file pairs in both esptool argument manifests and
+          # independently ensure their paths resolve inside the ZIP's output tree.
+          for manifest in ("flash_args", "flash_project_args"):
+              lines = (root / manifest).read_text().splitlines()
+              pairs = []
+              for line in lines[1:]:
+                  parts = shlex.split(line)
+                  if not parts:
+                      continue
+                  if len(parts) != 2:
+                      raise SystemExit(f"FAIL: malformed {manifest} line: {line}")
+                  offset_text, filename = parts
+                  path = root / filename
+                  if not path.is_file():
+                      raise SystemExit(f"FAIL: {manifest} references missing artifact: {filename}")
+                  pairs.append((int(offset_text, 16), filename))
+              if not pairs:
+                  raise SystemExit(f"FAIL: no image entries in {manifest}")
+              if {name for _, name in pairs} != seen:
+                  raise SystemExit(f"FAIL: {manifest} image list differs from flasher_args.json")
+              print(f"PASS: all {len(pairs)} paths in {manifest} resolve in packaged output")
+
+          if meta.get("extra_esptool_args", {}).get("chip") != "esp32s3":
+              raise SystemExit("FAIL: artifact is not configured for ESP32-S3")
+          if meta.get("flash_settings", {}).get("flash_size") != "4MB":
+              raise SystemExit("FAIL: flash manifest is not configured for 4MB")
+          print("PASS: all flash manifests resolve; 4MB bounds verified.")
           PY
           sha256sum output/*.bin | tee output/SHA256SUMS.txt
           echo "PASS: Jarvis selected; 4MB flash and partition boundaries verified."
