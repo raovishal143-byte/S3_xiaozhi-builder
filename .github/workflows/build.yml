@@ -117,8 +117,57 @@ jobs:
           grep -q '^CONFIG_USE_CUSTOM_WAKE_WORD=y$' output/sdkconfig.txt
           grep -q '^CONFIG_CUSTOM_WAKE_WORD="hey buddy"$' output/sdkconfig.txt
           grep -q '^CONFIG_CUSTOM_WAKE_WORD_DISPLAY="Hey Buddy"$' output/sdkconfig.txt
-          grep -q '^CONFIG_SR_MN_EN_MULTINET6_QUANT=y$' output/sdkconfig.txt
-          echo "PASS: 4MB flash, 4MB partition layout and Quad PSRAM verified."
+          grep -q '^CONFIG_SR_MN_EN_MULTINET6_QUANT=y
+      - name: Upload firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaozhi-firmware-s3-zero-esp32s3
+          path: output/
+          retention-days: 90
+
+      - name: Build summary
+        if: success()
+        run: |
+          echo "### Firmware Built" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Board: Waveshare ESP32-S3-Zero" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Flash: 4MB" >> "$GITHUB_STEP_SUMMARY"
+          echo "- PSRAM: Quad, 80MHz" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Partition layout: partitions/v2/4m.csv" >> "$GITHUB_STEP_SUMMARY"
+ output/sdkconfig.txt
+
+          # Hard safety gate: never publish an artifact whose binaries exceed
+          # the physical 4MB flash or the named partition boundaries.
+          python3 - <<'PY'
+          import json, pathlib, sys
+          meta = json.loads(pathlib.Path("output/flasher_args.json").read_text())
+          files = meta["flash_files"]
+          limits = {
+              "0x0": 0x8000,
+              "0x8000": 0x1000,
+              "0xd000": 0x2000,
+              "0x10000": 0x2f0000,
+              "0x300000": 0x100000,
+          }
+          flash_end = 0x400000
+          for offset_text, filename in files.items():
+              offset = int(offset_text, 16)
+              path = pathlib.Path("output") / pathlib.Path(filename).name
+              if not path.is_file():
+                  raise SystemExit(f"FAIL: missing flash file {path}")
+              end = offset + path.stat().st_size
+              if end > flash_end:
+                  raise SystemExit(
+                      f"FAIL: {path.name} ends at 0x{end:X}, beyond 4MB flash"
+                  )
+              if offset_text in limits and path.stat().st_size > limits[offset_text]:
+                  raise SystemExit(
+                      f"FAIL: {path.name} is {path.stat().st_size} bytes; "
+                      f"partition limit is {limits[offset_text]} bytes"
+                  )
+              print(f"PASS: {path.name} at 0x{offset:X}, {path.stat().st_size} bytes")
+          PY
+          echo "PASS: 4MB flash, partition boundaries and Quad PSRAM verified."
           ls -la output/
 
       - name: Upload firmware
