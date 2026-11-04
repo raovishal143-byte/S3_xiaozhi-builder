@@ -176,13 +176,13 @@ const startupGreetingBlock = [
   '        while (!audio_service_.IsPlaybackIdle()) {',
   '            vTaskDelay(pdMS_TO_TICKS(50));',
   '        }',
-  '        WakeWordInvoke("Hey Buddy");',
+  '        WakeWordInvoke("Jarvis");',
   '    });'
 ].join(String.fromCharCode(10));
 if (appSource.includes(readySoundBlock)) {
   appSource = appSource.replace(readySoundBlock, startupGreetingBlock);
   fs.writeFileSync(appSourcePath, appSource);
-} else if (!appSource.includes('WakeWordInvoke("Hey Buddy")')) {
+} else if (!appSource.includes('WakeWordInvoke("Jarvis")')) {
   throw new Error('Could not safely add the startup greeting trigger');
 }
 
