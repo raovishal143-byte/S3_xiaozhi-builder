@@ -1,1 +1,13 @@
-{"board":"bread-compact-wifi","chip":"esp32s3","language":"vi_VN","pins":{"display_scl":2,"spk_bclk":44,"mic_sck":10,"spk_lrck":1,"mic_din":4,"spk_dout":12,"display_sda":13,"mic_ws":11}}
+{
+  "board": "bread-compact-wifi",
+  "chip": "esp32s3",
+  "language": "en_US",
+  "pins": {
+    "mic_sck": 4,
+    "mic_ws": 5,
+    "mic_din": 6,
+    "spk_bclk": 8,
+    "spk_lrck": 9,
+    "spk_dout": 10
+  }
+}
