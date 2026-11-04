@@ -152,9 +152,9 @@ const blinkingSpeaking = [
   "            break;"
 ].join(String.fromCharCode(10));
 if (ledSource.includes(idleLed)) ledSource = ledSource.replace(idleLed, idleLedOff);
-else if (!ledSource.includes('case kDeviceStateIdle:' + nl + '            TurnOff();')) throw new Error('Could not safely patch idle LED state');
+else if (!ledSource.includes('case kDeviceStateIdle:' + String.fromCharCode(10) + '            TurnOff();')) throw new Error('Could not safely patch idle LED state');
 if (ledSource.includes(listeningLed)) ledSource = ledSource.replace(listeningLed, listeningLedOff);
-else if (!ledSource.includes('case kDeviceStateListening:' + nl + '        case kDeviceStateAudioTesting:' + nl + '            TurnOff();')) throw new Error('Could not safely patch listening LED state');
+else if (!ledSource.includes('case kDeviceStateListening:' + String.fromCharCode(10) + '        case kDeviceStateAudioTesting:' + String.fromCharCode(10) + '            TurnOff();')) throw new Error('Could not safely patch listening LED state');
 if (ledSource.includes(steadySpeaking)) ledSource = ledSource.replace(steadySpeaking, blinkingSpeaking);
 else if (!ledSource.includes('Blink GPIO2 only while the assistant is speaking')) throw new Error('Could not safely patch speaking LED state');
 fs.writeFileSync(ledSourcePath, ledSource);
