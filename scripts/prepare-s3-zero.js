@@ -108,25 +108,67 @@ if (!cmake.includes('CONFIG_BOARD_TYPE_S3_ZERO')) {
 
 const ledSourcePath = path.join(root, 'main', 'led', 'gpio_led.cc');
 let ledSource = fs.readFileSync(ledSourcePath, 'utf8');
+const idleLed = `        case kDeviceStateIdle:
+            SetBrightness(IDLE_BRIGHTNESS);
+            TurnOn();
+            // TurnOff();
+            break;`;
+const idleLedOff = `        case kDeviceStateIdle:
+            TurnOff();
+            break;`;
+const listeningLed = `        case kDeviceStateListening:
+        case kDeviceStateAudioTesting:
+            if (app.IsVoiceDetected()) {
+                SetBrightness(HIGH_BRIGHTNESS);
+            } else {
+                SetBrightness(LOW_BRIGHTNESS);
+            }
+            // TurnOn();
+            StartFadeTask();
+            break;`;
+const listeningLedOff = `        case kDeviceStateListening:
+        case kDeviceStateAudioTesting:
+            TurnOff();
+            break;`;
 const steadySpeaking = `        case kDeviceStateSpeaking:
         case kDeviceStateNotifying:
             SetBrightness(SPEAKING_BRIGHTNESS);
             TurnOn();
             break;`;
 const blinkingSpeaking = `        case kDeviceStateSpeaking:
-            // Blink the external GPIO2 LED while AI audio is being played.
+        case kDeviceStateNotifying:
+            // Blink GPIO2 only while the assistant is playing voice audio.
             SetBrightness(SPEAKING_BRIGHTNESS);
             StartContinuousBlink(180);
-            break;
-        case kDeviceStateNotifying:
-            SetBrightness(SPEAKING_BRIGHTNESS);
-            TurnOn();
             break;`;
-if (ledSource.includes(steadySpeaking)) {
-  ledSource = ledSource.replace(steadySpeaking, blinkingSpeaking);
-  fs.writeFileSync(ledSourcePath, ledSource);
-} else if (!ledSource.includes('Blink the external GPIO2 LED while AI audio is being played')) {
-  throw new Error('Could not safely locate the GPIO LED speaking-state handler; refusing to patch.');
+if (ledSource.includes(idleLed)) ledSource = ledSource.replace(idleLed, idleLedOff);
+else if (!ledSource.includes('case kDeviceStateIdle:\n            TurnOff();')) throw new Error('Could not safely patch idle LED state');
+if (ledSource.includes(listeningLed)) ledSource = ledSource.replace(listeningLed, listeningLedOff);
+else if (!ledSource.includes('case kDeviceStateListening:\n        case kDeviceStateAudioTesting:\n            TurnOff();')) throw new Error('Could not safely patch listening LED state');
+if (ledSource.includes(steadySpeaking)) ledSource = ledSource.replace(steadySpeaking, blinkingSpeaking);
+else if (!ledSource.includes('Blink GPIO2 only while the assistant is playing voice audio')) throw new Error('Could not safely patch speaking LED state');
+fs.writeFileSync(ledSourcePath, ledSource);
+
+// After Wi-Fi and XiaoZhi activation complete, open the first session automatically.
+// The server's greeting setting and agent role provide the spoken greeting.
+const appSourcePath = path.join(root, 'main', 'application.cc');
+let appSource = fs.readFileSync(appSourcePath, 'utf8');
+const activationMarker = `    if (!startup_completed_) {
+        startup_completed_ = true;
+        pending_startup_wake_word_hint_ = !has_error;
+    }`;
+const activationReplacement = `    if (!startup_completed_) {
+        startup_completed_ = true;
+        pending_startup_wake_word_hint_ = !has_error;
+        if (!has_error) {
+            Schedule([this]() { WakeWordInvoke("Hey Buddy"); });
+        }
+    }`;
+if (appSource.includes(activationMarker)) {
+  appSource = appSource.replace(activationMarker, activationReplacement);
+  fs.writeFileSync(appSourcePath, appSource);
+} else if (!appSource.includes('WakeWordInvoke("Hey Buddy")')) {
+  throw new Error('Could not safely add the one-time startup greeting trigger');
 }
 
 console.log('Prepared custom Waveshare ESP32-S3-Zero board (no display).');
