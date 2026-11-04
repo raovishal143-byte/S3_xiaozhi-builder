@@ -59,3 +59,5 @@ main().catch(err => {
   console.error("FAIL:", err.message);
   process.exitCode = 1;
 });
+
+// Workflow trigger: harmless comment-only update for the Audius smoke test.
