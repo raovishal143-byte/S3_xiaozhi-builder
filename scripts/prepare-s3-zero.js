@@ -87,7 +87,7 @@ fs.writeFileSync(path.join(boardDir, 'waveshare_s3_zero.cc'), boardCc);
 
 let kconfig = fs.readFileSync(kconfigPath, 'utf8');
 if (!kconfig.includes('config BOARD_TYPE_S3_ZERO')) {
-  const pos = kconfig.lastIndexOf('endchoice');
+  const pos = kconfig.indexOf('endchoice', kconfig.indexOf('choice BOARD_TYPE'));
   if (pos < 0) throw new Error('Could not find endchoice in main/Kconfig.projbuild');
   kconfig = kconfig.slice(0, pos) +
     '    config BOARD_TYPE_S3_ZERO\n        bool "Waveshare ESP32-S3-Zero (custom, no display)"\n        depends on IDF_TARGET_ESP32S3\n' +
