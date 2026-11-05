@@ -42,16 +42,6 @@ jobs:
       - name: Prepare custom Waveshare ESP32-S3-Zero board
         run: node scripts/prepare-s3-zero.js
 
-      - name: Generate fully offline startup greeting audio
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y espeak-ng ffmpeg
-          python3 scripts/generate-startup-greeting.py
-          test -s xiaozhi-esp32/main/startup_greeting.h
-          grep -q 'STARTUP_GREETING_OGG_LEN' xiaozhi-esp32/main/startup_greeting.h
-
       - name: Generate board config and enforce safe 4MB defaults
         shell: bash
         run: |
