@@ -49,6 +49,10 @@ jobs:
           node scripts/generate-config.js build_config.json
           TARGET_DEFAULTS="xiaozhi-esp32/sdkconfig.defaults.esp32s3"
           test -f "$TARGET_DEFAULTS"
+          # Diagnostic build: restore second-stage bootloader logs; Build #41 suppressed them.
+          sed -i '/^CONFIG_BOOTLOADER_LOG_LEVEL_NONE=y$/d' xiaozhi-esp32/sdkconfig.defaults
+          sed -i '/^CONFIG_BOOTLOADER_LOG_LEVEL_NONE=y$/d;/^CONFIG_BOOTLOADER_LOG_LEVEL_INFO=y$/d' "$TARGET_DEFAULTS"
+          echo "CONFIG_BOOTLOADER_LOG_LEVEL_INFO=y" >> "$TARGET_DEFAULTS"
 
           # Physical board: Waveshare ESP32-S3-Zero, 4MB flash, 2MB Quad PSRAM.
           sed -i '/^CONFIG_ESPTOOLPY_FLASHSIZE_/d;/^# CONFIG_ESPTOOLPY_FLASHSIZE_/d;/^CONFIG_ESPTOOLPY_FLASHSIZE=/d' "$TARGET_DEFAULTS"
