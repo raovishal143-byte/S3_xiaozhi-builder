@@ -64,7 +64,7 @@ jobs:
               "    }",
           ]
           assert s.count(needle) == 1, "Could not locate incoming Opus packet queue insertion"
-          s = s.replace(needle, "\\n".join(lines) + "\\n" + needle, 1)
+          s = s.replace(needle, "\n".join(lines) + "\n" + needle, 1)
 
           needle = "                    decoded = true;"
           lines = [
@@ -82,7 +82,7 @@ jobs:
               "                    }",
           ]
           assert s.count(needle) == 1, "Could not locate Opus decoder success point"
-          s = s.replace(needle, "\\n".join(lines) + "\\n" + needle, 1)
+          s = s.replace(needle, "\n".join(lines) + "\n" + needle, 1)
 
           needle = "        codec_->OutputData(task->pcm);"
           lines = [
@@ -100,7 +100,7 @@ jobs:
               "        }",
           ]
           assert s.count(needle) == 1, "Could not locate speaker PCM output call"
-          s = s.replace(needle, "\\n".join(lines) + "\\n" + needle, 1)
+          s = s.replace(needle, "\n".join(lines) + "\n" + needle, 1)
           p.write_text(s)
 
           p = root / "codecs" / "no_audio_codec.cc"
@@ -127,7 +127,7 @@ jobs:
               "    }",
           ]
           assert s.count(needle) == 1, "Could not locate I2S speaker write call"
-          s = s.replace(needle, "\\n".join(lines), 1)
+          s = s.replace(needle, "\n".join(lines), 1)
           p.write_text(s)
           print("PASS: added rate-limited OPUS_RX, OPUS_DECODE, PCM_OUTPUT and actual I2S_WRITE diagnostics")
           PY
