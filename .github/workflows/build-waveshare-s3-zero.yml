@@ -77,3 +77,5 @@ jobs:
 # Rebuild for speaker-path diagnostics: Opus PCM and I2S write instrumentation.
 
 # Rebuild after restoring mic scaling, preserving startup LED flashes, and correcting speaker volume scaling.
+
+# Rebuild after adding raw INMP441 I2S diagnostics and reliable LED startup/task checks.
