@@ -6,6 +6,7 @@ on:
       - esp32-s3-zero-support
       - feature/hey-buddy-voice
       - feature/jarvis-clean-audio-led
+      - diagnostic/bootloader-logs-build42
   workflow_dispatch:
     inputs:
       board:
