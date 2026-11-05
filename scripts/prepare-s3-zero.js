@@ -222,4 +222,5 @@ else if (!appSource.includes('Offline wake word detected:')) throw new Error('Co
 
 fs.writeFileSync(appSourcePath, appSource);
 
-console.log('Prepared custom Waveshare ESP32-S3-Zero board (no display).');
+// Startup greeting intentionally disabled by request.
+console.log('Prepared custom Waveshare ESP32-S3-Zero board (no display, no startup greeting).');
