@@ -70,3 +70,5 @@ jobs:
 # Rebuild after adding explicit ESP timer include to the microphone diagnostic.
 
 # Rebuild after the diagnostic uses std::sqrt.
+
+# Rebuild after correcting INMP441 24-bit sample scaling to 16-bit PCM.
