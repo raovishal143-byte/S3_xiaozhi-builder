@@ -46,18 +46,48 @@ const boardCc = `#include "wifi_board.h"
 class StartupAwareGpioLed : public GpioLed {
 private:
     std::atomic<bool> startup_sequence_active_{true};
+    std::atomic<bool> speaking_blink_active_{false};
+
+    static void SpeakingBlinkTask(void* arg) {
+        auto* self = static_cast<StartupAwareGpioLed*>(arg);
+        auto& app = Application::GetInstance();
+        while (self->speaking_blink_active_.load() &&
+               app.GetDeviceState() == kDeviceStateSpeaking) {
+            self->SetBrightness(100);
+            self->TurnOn();
+            vTaskDelay(pdMS_TO_TICKS(180));
+            self->TurnOff();
+            vTaskDelay(pdMS_TO_TICKS(180));
+        }
+        self->speaking_blink_active_.store(false);
+        self->TurnOff();
+        vTaskDelete(nullptr);
+    }
 
 public:
     explicit StartupAwareGpioLed(gpio_num_t gpio) : GpioLed(gpio) {}
 
     void OnStateChanged() override {
-        if (!startup_sequence_active_.load()) {
-            GpioLed::OnStateChanged();
+        if (startup_sequence_active_.load()) return;
+
+        auto& app = Application::GetInstance();
+        if (app.GetDeviceState() == kDeviceStateSpeaking) {
+            bool expected = false;
+            if (speaking_blink_active_.compare_exchange_strong(expected, true)) {
+                if (xTaskCreate(SpeakingBlinkTask, "ai_led_blink", 2048, this, 1, nullptr) != pdPASS) {
+                    speaking_blink_active_.store(false);
+                    TurnOff();
+                }
+            }
+        } else {
+            speaking_blink_active_.store(false);
+            TurnOff();
         }
     }
 
     void FinishStartupSequence() {
         startup_sequence_active_.store(false);
+        speaking_blink_active_.store(false);
         TurnOff();
     }
 };
@@ -96,6 +126,7 @@ private:
 public:
     WaveshareS3ZeroBoard() : boot_button_(BOOT_BUTTON_GPIO) {
         status_led_ = new StartupAwareGpioLed(BUILTIN_LED_GPIO);
+        status_led_->SetBrightness(100);
         InitializeButtons();
         xTaskCreate(StartupLedTask, "startup_led", 2048, this, 1, nullptr);
     }
