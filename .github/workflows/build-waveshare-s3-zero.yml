@@ -1,4 +1,5 @@
 name: Build Waveshare ESP32-S3-Zero XiaoZhi Firmware
+# Rebuild requested for microphone diagnostics and wake-word LED feedback.
 
 on:
   push:
