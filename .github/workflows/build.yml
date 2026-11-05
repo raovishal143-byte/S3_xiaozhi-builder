@@ -31,11 +31,11 @@ jobs:
           old = 'wakenet_model_name = esp_srmodel_filter(models_, ESP_WN_PREFIX, nullptr);'
           assert s.count(old) == 1, "WakeNet selection source changed"
           s = s.replace(old, 'wakenet_model_name = esp_srmodel_filter(models_, ESP_WN_PREFIX, "hijason");')
-          old = '    afe_config->wakenet_model_name = wake_detector_ == WakeDetector::kWakeNet\\n        ? wakenet_model_name\\n        : nullptr;'
+          old = '    afe_config->wakenet_model_name = wake_detector_ == WakeDetector::kWakeNet\n        ? wakenet_model_name\n        : nullptr;'
           assert s.count(old) == 1, "AFE config source changed"
-          s = s.replace(old, old + '\\n    // Explicitly disable WakeNet slot 2: Hi Jason is the sole wake word.\\n    afe_config->wakenet_model_name_2 = nullptr;')
-          old = '    int model_index = result->wakenet_model_index - 1;\\n    if (model_index < 0 || model_index >= static_cast<int>(wake_words_.size())) {\\n        ESP_LOGE(TAG, "Invalid WakeNet model index: %d", result->wakenet_model_index);\\n        return;\\n    }\\n\\n    last_detected_wake_word_ = wake_words_[model_index];'
-          new = '    if (result->wakenet_model_index != 1) {\\n        ESP_LOGW(TAG, "Ignoring non-selected WakeNet model index: %d", result->wakenet_model_index);\\n        return;\\n    }\\n    int word_index = result->wake_word_index - 1;\\n    if (word_index < 0 || word_index >= static_cast<int>(wake_words_.size())) {\\n        ESP_LOGE(TAG, "Invalid Hi Jason wake-word index: %d", result->wake_word_index);\\n        return;\\n    }\\n\\n    last_detected_wake_word_ = wake_words_[word_index];\\n    ESP_LOGI(TAG, "Selected wake word detected: %s", last_detected_wake_word_.c_str());'
+          s = s.replace(old, old + '\n    // Explicitly disable WakeNet slot 2: Hi Jason is the sole wake word.\n    afe_config->wakenet_model_name_2 = nullptr;')
+          old = '    int model_index = result->wakenet_model_index - 1;\n    if (model_index < 0 || model_index >= static_cast<int>(wake_words_.size())) {\n        ESP_LOGE(TAG, "Invalid WakeNet model index: %d", result->wakenet_model_index);\n        return;\n    }\n\n    last_detected_wake_word_ = wake_words_[model_index];'
+          new = '    if (result->wakenet_model_index != 1) {\n        ESP_LOGW(TAG, "Ignoring non-selected WakeNet model index: %d", result->wakenet_model_index);\n        return;\n    }\n    int word_index = result->wake_word_index - 1;\n    if (word_index < 0 || word_index >= static_cast<int>(wake_words_.size())) {\n        ESP_LOGE(TAG, "Invalid Hi Jason wake-word index: %d", result->wake_word_index);\n        return;\n    }\n\n    last_detected_wake_word_ = wake_words_[word_index];\n    ESP_LOGI(TAG, "Selected wake word detected: %s", last_detected_wake_word_.c_str());'
           assert s.count(old) == 1, "WakeNet result mapping source changed"
           s = s.replace(old, new)
           p.write_text(s)
