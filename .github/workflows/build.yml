@@ -98,22 +98,22 @@ jobs:
 
           old = """        codec_->OutputData(task->pcm);
 
-        /* Update the last output time */"""
+                  /* Update the last output time */"""
           new = """        uint32_t pcm_peak = 0;
-        for (int16_t sample : task->pcm) {
+                  for (int16_t sample : task->pcm) {
             uint32_t magnitude = sample < 0 ? (uint32_t)(-(int32_t)sample) : (uint32_t)sample;
             if (magnitude > pcm_peak) pcm_peak = magnitude;
-        }
-        static uint32_t pcm_output_log_count = 0;
-        ++pcm_output_log_count;
-        if (pcm_output_log_count <= 8 || pcm_output_log_count % 20 == 0) {
+                  }
+                  static uint32_t pcm_output_log_count = 0;
+                  ++pcm_output_log_count;
+                  if (pcm_output_log_count <= 8 || pcm_output_log_count % 20 == 0) {
             ESP_LOGI(TAG, "PCM_OUTPUT: samples=%u peak=%u rate=%d count=%u",
                      (unsigned)task->pcm.size(), (unsigned)pcm_peak,
                      codec_->output_sample_rate(), (unsigned)pcm_output_log_count);
-        }
-        codec_->OutputData(task->pcm);
+                  }
+                  codec_->OutputData(task->pcm);
 
-        /* Update the last output time */"""
+                  /* Update the last output time */"""
           assert s.count(old) == 1, "Could not locate speaker PCM output call"
           s = s.replace(old, new)
           p.write_text(s)
@@ -121,25 +121,25 @@ jobs:
           p = root / "codecs" / "no_audio_codec.cc"
           s = p.read_text()
           old = """    size_t bytes_written;
-    ESP_ERROR_CHECK(i2s_channel_write(tx_handle_, buffer.data(), samples * sizeof(int32_t), &bytes_written, portMAX_DELAY));
-    return bytes_written / sizeof(int32_t);"""
+              ESP_ERROR_CHECK(i2s_channel_write(tx_handle_, buffer.data(), samples * sizeof(int32_t), &bytes_written, portMAX_DELAY));
+              return bytes_written / sizeof(int32_t);"""
           new = """    size_t bytes_written = 0;
-    const size_t requested_bytes = (size_t)samples * sizeof(int32_t);
-    esp_err_t write_err = i2s_channel_write(tx_handle_, buffer.data(), requested_bytes,
+              const size_t requested_bytes = (size_t)samples * sizeof(int32_t);
+              esp_err_t write_err = i2s_channel_write(tx_handle_, buffer.data(), requested_bytes,
                                            &bytes_written, portMAX_DELAY);
-    if (write_err != ESP_OK) {
-        ESP_LOGE(TAG, "I2S_WRITE: failed err=%s requested=%u",
+              if (write_err != ESP_OK) {
+                  ESP_LOGE(TAG, "I2S_WRITE: failed err=%s requested=%u",
                  esp_err_to_name(write_err), (unsigned)requested_bytes);
-        ESP_ERROR_CHECK(write_err);
-    }
-    static uint32_t i2s_write_log_count = 0;
-    ++i2s_write_log_count;
-    if (i2s_write_log_count <= 8 || i2s_write_log_count % 20 == 0) {
-        ESP_LOGI(TAG, "I2S_WRITE: requested=%u bytes=%u samples=%d count=%u",
+                  ESP_ERROR_CHECK(write_err);
+              }
+              static uint32_t i2s_write_log_count = 0;
+              ++i2s_write_log_count;
+              if (i2s_write_log_count <= 8 || i2s_write_log_count % 20 == 0) {
+                  ESP_LOGI(TAG, "I2S_WRITE: requested=%u bytes=%u samples=%d count=%u",
                  (unsigned)requested_bytes, (unsigned)bytes_written,
                  samples, (unsigned)i2s_write_log_count);
-    }
-    return bytes_written / sizeof(int32_t);"""
+              }
+              return bytes_written / sizeof(int32_t);"""
           assert s.count(old) == 1, "Could not locate I2S speaker write call"
           s = s.replace(old, new)
           p.write_text(s)
