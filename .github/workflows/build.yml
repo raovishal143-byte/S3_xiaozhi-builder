@@ -306,3 +306,183 @@ jobs:
           echo "- Flash: 4MB; PSRAM: Quad 80MHz" >> "$GITHUB_STEP_SUMMARY"
           echo "- Partition layout: partitions/v2/4m.csv" >> "$GITHUB_STEP_SUMMARY"
           echo "- MultiNet custom wake word: disabled" >> "$GITHUB_STEP_SUMMARY"
+ output/sdkconfig.txt
+          grep -q '^CONFIG_SEND_WAKE_WORD_DATA=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_USE_CUSTOM_WAKE_WORD=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_SR_MN_' output/sdkconfig.txt
+          grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE="4MB"$' output/sdkconfig.txt
+          grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/4m.csv"$' output/sdkconfig.txt
+          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' output/sdkconfig.txt
+
+          # Hard gate: validate every referenced file in the final artifact layout,
+          # including nested bootloader/ and partition_table/ paths, and check flash bounds.
+          python3 - <<'PY'
+          import json, pathlib, hashlib, shlex
+          root = pathlib.Path("output")
+          meta = json.loads((root / "flasher_args.json").read_text())
+          files = meta.get("flash_files", {})
+          limits = {0x0: 0x8000, 0x8000: 0x1000, 0xd000: 0x2000,
+                    0x10000: 0x2f0000, 0x300000: 0x100000}
+          flash_end = 0x400000
+          if not files:
+              raise SystemExit("FAIL: no flash_files in flasher_args.json")
+          seen = set()
+          for offset_text, filename in files.items():
+              offset = int(offset_text, 16)
+              rel = pathlib.PurePosixPath(filename)
+              if rel.is_absolute() or ".." in rel.parts:
+                  raise SystemExit(f"FAIL: unsafe flash path {filename}")
+              path = root.joinpath(*rel.parts)
+              if not path.is_file():
+                  raise SystemExit(f"FAIL: flasher_args.json references missing artifact: {filename}")
+              size = path.stat().st_size
+              finish = offset + size
+              if finish > flash_end:
+                  raise SystemExit(f"FAIL: {filename} ends at 0x{finish:X}, beyond 4MB flash")
+              if offset in limits and size > limits[offset]:
+                  raise SystemExit(f"FAIL: {filename} is {size} bytes; partition limit is {limits[offset]} bytes")
+              seen.add(filename)
+              print(f"PASS: {filename} at 0x{offset:X}, {size} bytes, sha256={hashlib.sha256(path.read_bytes()).hexdigest()}")
+
+          # Parse the offset/file pairs in both esptool argument manifests and
+          # independently ensure their paths resolve inside the ZIP's output tree.
+          for manifest in ("flash_args", "flash_project_args"):
+              lines = (root / manifest).read_text().splitlines()
+              pairs = []
+              for line in lines[1:]:
+                  parts = shlex.split(line)
+                  if not parts:
+                      continue
+                  if len(parts) != 2:
+                      raise SystemExit(f"FAIL: malformed {manifest} line: {line}")
+                  offset_text, filename = parts
+                  path = root / filename
+                  if not path.is_file():
+                      raise SystemExit(f"FAIL: {manifest} references missing artifact: {filename}")
+                  pairs.append((int(offset_text, 16), filename))
+              if not pairs:
+                  raise SystemExit(f"FAIL: no image entries in {manifest}")
+              if {name for _, name in pairs} != seen:
+                  raise SystemExit(f"FAIL: {manifest} image list differs from flasher_args.json")
+              print(f"PASS: all {len(pairs)} paths in {manifest} resolve in packaged output")
+
+          if meta.get("extra_esptool_args", {}).get("chip") != "esp32s3":
+              raise SystemExit("FAIL: artifact is not configured for ESP32-S3")
+          if meta.get("flash_settings", {}).get("flash_size") != "4MB":
+              raise SystemExit("FAIL: flash manifest is not configured for 4MB")
+          print("PASS: all flash manifests resolve; 4MB bounds verified.")
+          PY
+          (cd output && find . -type f -name '*.bin' -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+          echo '=== Verify complete packaged binary checksum manifest ==='
+          (cd output && sha256sum -c SHA256SUMS.txt)
+          echo "PASS: XiaoZhi default wake phrase selected; 4MB flash and partition boundaries verified."
+          ls -lah output/
+
+      - name: Upload verified firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaozhi-firmware-s3-zero-simple
+          path: output/
+          retention-days: 90
+
+      - name: Build summary
+        if: success()
+        run: |
+          echo "### Simple XiaoZhi firmware build completed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Board: Waveshare ESP32-S3-Zero" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Wake word: XiaoZhi predefined phrase (offline WakeNet9)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Flash: 4MB; PSRAM: Quad 80MHz" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Partition layout: partitions/v2/4m.csv" >> "$GITHUB_STEP_SUMMARY"
+          echo "- MultiNet custom wake word: disabled" >> "$GITHUB_STEP_SUMMARY"
+ output/sdkconfig.txt
+          grep -q '^CONFIG_SEND_WAKE_WORD_DATA=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_USE_CUSTOM_WAKE_WORD=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_SR_MN_' output/sdkconfig.txt
+          grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE="4MB"$' output/sdkconfig.txt
+          grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/4m.csv"$' output/sdkconfig.txt
+          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' output/sdkconfig.txt
+          ! grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' output/sdkconfig.txt
+
+          # Hard gate: validate every referenced file in the final artifact layout,
+          # including nested bootloader/ and partition_table/ paths, and check flash bounds.
+          python3 - <<'PY'
+          import json, pathlib, hashlib, shlex
+          root = pathlib.Path("output")
+          meta = json.loads((root / "flasher_args.json").read_text())
+          files = meta.get("flash_files", {})
+          limits = {0x0: 0x8000, 0x8000: 0x1000, 0xd000: 0x2000,
+                    0x10000: 0x2f0000, 0x300000: 0x100000}
+          flash_end = 0x400000
+          if not files:
+              raise SystemExit("FAIL: no flash_files in flasher_args.json")
+          seen = set()
+          for offset_text, filename in files.items():
+              offset = int(offset_text, 16)
+              rel = pathlib.PurePosixPath(filename)
+              if rel.is_absolute() or ".." in rel.parts:
+                  raise SystemExit(f"FAIL: unsafe flash path {filename}")
+              path = root.joinpath(*rel.parts)
+              if not path.is_file():
+                  raise SystemExit(f"FAIL: flasher_args.json references missing artifact: {filename}")
+              size = path.stat().st_size
+              finish = offset + size
+              if finish > flash_end:
+                  raise SystemExit(f"FAIL: {filename} ends at 0x{finish:X}, beyond 4MB flash")
+              if offset in limits and size > limits[offset]:
+                  raise SystemExit(f"FAIL: {filename} is {size} bytes; partition limit is {limits[offset]} bytes")
+              seen.add(filename)
+              print(f"PASS: {filename} at 0x{offset:X}, {size} bytes, sha256={hashlib.sha256(path.read_bytes()).hexdigest()}")
+
+          # Parse the offset/file pairs in both esptool argument manifests and
+          # independently ensure their paths resolve inside the ZIP's output tree.
+          for manifest in ("flash_args", "flash_project_args"):
+              lines = (root / manifest).read_text().splitlines()
+              pairs = []
+              for line in lines[1:]:
+                  parts = shlex.split(line)
+                  if not parts:
+                      continue
+                  if len(parts) != 2:
+                      raise SystemExit(f"FAIL: malformed {manifest} line: {line}")
+                  offset_text, filename = parts
+                  path = root / filename
+                  if not path.is_file():
+                      raise SystemExit(f"FAIL: {manifest} references missing artifact: {filename}")
+                  pairs.append((int(offset_text, 16), filename))
+              if not pairs:
+                  raise SystemExit(f"FAIL: no image entries in {manifest}")
+              if {name for _, name in pairs} != seen:
+                  raise SystemExit(f"FAIL: {manifest} image list differs from flasher_args.json")
+              print(f"PASS: all {len(pairs)} paths in {manifest} resolve in packaged output")
+
+          if meta.get("extra_esptool_args", {}).get("chip") != "esp32s3":
+              raise SystemExit("FAIL: artifact is not configured for ESP32-S3")
+          if meta.get("flash_settings", {}).get("flash_size") != "4MB":
+              raise SystemExit("FAIL: flash manifest is not configured for 4MB")
+          print("PASS: all flash manifests resolve; 4MB bounds verified.")
+          PY
+          (cd output && find . -type f -name '*.bin' -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+          echo '=== Verify complete packaged binary checksum manifest ==='
+          (cd output && sha256sum -c SHA256SUMS.txt)
+          echo "PASS: XiaoZhi default wake phrase selected; 4MB flash and partition boundaries verified."
+          ls -lah output/
+
+      - name: Upload verified firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiaozhi-firmware-s3-zero-simple
+          path: output/
+          retention-days: 90
+
+      - name: Build summary
+        if: success()
+        run: |
+          echo "### Simple XiaoZhi firmware build completed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Board: Waveshare ESP32-S3-Zero" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Wake word: XiaoZhi predefined phrase (offline WakeNet9)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Flash: 4MB; PSRAM: Quad 80MHz" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Partition layout: partitions/v2/4m.csv" >> "$GITHUB_STEP_SUMMARY"
+          echo "- MultiNet custom wake word: disabled" >> "$GITHUB_STEP_SUMMARY"
