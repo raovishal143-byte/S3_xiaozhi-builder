@@ -73,3 +73,5 @@ jobs:
 
 # Rebuild after correcting INMP441 24-bit sample scaling to 16-bit PCM.
 # Include immediate wake-word LED indication during the connecting state.
+
+# Rebuild for speaker-path diagnostics: Opus PCM and I2S write instrumentation.
