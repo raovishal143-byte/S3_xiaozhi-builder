@@ -70,10 +70,10 @@ jobs:
         run: |
           set -euo pipefail
           MODEL_INFO="xiaozhi-esp32/managed_components/espressif__esp-sr/model/wakenet_model/wn9_hijason_tts2/_MODEL_INFO_"
-          test -f "$MODEL_INFO" || { echo "Missing Hi Jason WakeNet9 model"; find xiaozhi-esp32/managed_components -iname '*nihaoxiaozhi*' -print || true; exit 1; }
+          test -f "$MODEL_INFO" || { echo "Missing Hi Jason WakeNet9 model"; find xiaozhi-esp32/managed_components -iname '*hijason*' -print || true; exit 1; }
           cp xiaozhi-esp32/sdkconfig output-sdkconfig.tmp
           grep -q '^CONFIG_USE_AFE_WAKE_WORD=y$' output-sdkconfig.tmp
-          grep -q '^CONFIG_SR_WN_WN9_HIJASON_TTS2=y
+          grep -q '^CONFIG_SR_WN_WN9_HIJASON_TTS2=y$' output-sdkconfig.tmp
           grep -q '^CONFIG_SEND_WAKE_WORD_DATA=y$' output-sdkconfig.tmp
           ! grep -q '^CONFIG_USE_CUSTOM_WAKE_WORD=y$' output-sdkconfig.tmp
           grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE="4MB"$' output-sdkconfig.tmp
