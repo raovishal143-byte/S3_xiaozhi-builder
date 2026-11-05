@@ -5,6 +5,7 @@ on:
     branches:
       - esp32-s3-zero-support
       - feature/hey-buddy-voice
+      - feature/jarvis-clean-audio-led
   workflow_dispatch:
     inputs:
       board:
