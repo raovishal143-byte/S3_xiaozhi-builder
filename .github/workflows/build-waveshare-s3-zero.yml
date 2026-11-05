@@ -66,3 +66,5 @@ jobs:
             xiaozhi-esp32/sdkconfig
           if-no-files-found: error
           retention-days: 30
+
+# Rebuild after adding explicit ESP timer include to the microphone diagnostic.
