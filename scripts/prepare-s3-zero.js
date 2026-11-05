@@ -41,11 +41,31 @@ const boardCc = `#include "wifi_board.h"
 #include "led/gpio_led.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <atomic>
+
+class StartupAwareGpioLed : public GpioLed {
+private:
+    std::atomic<bool> startup_sequence_active_{true};
+
+public:
+    explicit StartupAwareGpioLed(gpio_num_t gpio) : GpioLed(gpio) {}
+
+    void OnStateChanged() override {
+        if (!startup_sequence_active_.load()) {
+            GpioLed::OnStateChanged();
+        }
+    }
+
+    void FinishStartupSequence() {
+        startup_sequence_active_.store(false);
+        TurnOff();
+    }
+};
 
 class WaveshareS3ZeroBoard : public WifiBoard {
 private:
     Button boot_button_;
-    GpioLed* status_led_ = nullptr;
+    StartupAwareGpioLed* status_led_ = nullptr;
 
     static void StartupLedTask(void* arg) {
         auto* self = static_cast<WaveshareS3ZeroBoard*>(arg);
@@ -55,7 +75,7 @@ private:
             self->status_led_->TurnOff();
             vTaskDelay(pdMS_TO_TICKS(180));
         }
-        self->status_led_->TurnOff();
+        self->status_led_->FinishStartupSequence();
         vTaskDelete(nullptr);
     }
 
@@ -75,7 +95,7 @@ private:
 
 public:
     WaveshareS3ZeroBoard() : boot_button_(BOOT_BUTTON_GPIO) {
-        status_led_ = new GpioLed(BUILTIN_LED_GPIO);
+        status_led_ = new StartupAwareGpioLed(BUILTIN_LED_GPIO);
         InitializeButtons();
         xTaskCreate(StartupLedTask, "startup_led", 2048, this, 1, nullptr);
     }
@@ -171,7 +191,26 @@ else if (!ledSource.includes('case kDeviceStateIdle:' + String.fromCharCode(10) 
 if (ledSource.includes(listeningLed)) ledSource = ledSource.replace(listeningLed, listeningLedOff);
 else if (!ledSource.includes('case kDeviceStateListening:' + String.fromCharCode(10) + '        case kDeviceStateAudioTesting:' + String.fromCharCode(10) + '            TurnOff();')) throw new Error('Could not safely patch listening LED state');
 if (ledSource.includes(steadySpeaking)) ledSource = ledSource.replace(steadySpeaking, blinkingSpeaking);
-else if (!ledSource.includes('Blink GPIO2 only while the assistant is speaking')) throw new Error('Could not safely patch speaking LED state');
+else if (!ledSource.includes('GPIO2 stays steadily ON only while XiaoZhi is answering.')) throw new Error('Could not safely patch speaking LED state');
+
+// Enforce the requested LED policy for every device state: only speaking is ON.
+// The board-level StartupAwareGpioLed independently owns the five startup blinks.
+const stateHandlerStart = ledSource.indexOf('void GpioLed::OnStateChanged() {');
+const stateHandlerEnd = ledSource.indexOf('\nvoid GpioLed::EventTask', stateHandlerStart);
+if (stateHandlerStart < 0 || stateHandlerEnd < 0) throw new Error('Could not locate complete GPIO LED state handler');
+const stateHandler = [
+  'void GpioLed::OnStateChanged() {',
+  '    auto& app = Application::GetInstance();',
+  '    if (app.GetDeviceState() == kDeviceStateSpeaking) {',
+  '        SetBrightness(SPEAKING_BRIGHTNESS);',
+  '        TurnOn();',
+  '    } else {',
+  '        TurnOff();',
+  '    }',
+  '}',
+  ''
+].join(String.fromCharCode(10));
+ledSource = ledSource.slice(0, stateHandlerStart) + stateHandler + ledSource.slice(stateHandlerEnd + 1);
 fs.writeFileSync(ledSourcePath, ledSource);
 
 // Embed and play a locally generated Ogg/Opus greeting. No network or XiaoZhi
@@ -208,7 +247,7 @@ if (appSource.includes(oldPlaybackHandler)) {
   if (p < 0) throw new Error('Could not locate playback-drained handler');
   const insert = p + marker.length;
   if (!appSource.includes('startup_greeting_playing_ && audio_service_.IsPlaybackIdle()')) {
-    appSource = appSource.slice(0, insert) + '\n            if (startup_greeting_playing_ && audio_service_.IsPlaybackIdle()) {\n                startup_greeting_playing_ = false;\n            }' + appSource.slice(insert);
+    appSource = appSource.slice(0, insert) + '\n            if (startup_greeting_playing_ && audio_service_.IsPlaybackIdle()) {\n                startup_greeting_playing_ = false;\n                audio_service_.EnableWakeWordDetection(true);\n            }' + appSource.slice(insert);
   }
 }
 fs.writeFileSync(appSourcePath, appSource);
