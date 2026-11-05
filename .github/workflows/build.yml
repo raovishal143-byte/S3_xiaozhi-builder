@@ -28,50 +28,18 @@ jobs:
           from pathlib import Path
           p = Path("xiaozhi-esp32/main/audio/engines/afe_audio_engine.cc")
           s = p.read_text()
-          old_select = 'wakenet_model_name = esp_srmodel_filter(models_, ESP_WN_PREFIX, nullptr);'
-          new_select = 'wakenet_model_name = esp_srmodel_filter(models_, ESP_WN_PREFIX, "hijason");'
-          if s.count(old_select) != 1:
-              raise SystemExit("Expected WakeNet model-selection line was not found exactly once")
-          s = s.replace(old_select, new_select)
-          old_cfg = '''    afe_config->wakenet_model_name = wake_detector_ == WakeDetector::kWakeNet
-          ? wakenet_model_name
-          : nullptr;'''
-          new_cfg = '''    afe_config->wakenet_model_name = wake_detector_ == WakeDetector::kWakeNet
-          ? wakenet_model_name
-          : nullptr;
-      // Run only the explicitly selected Hi Jason model; do not allow the
-      // default Chinese model to occupy WakeNet slot 2.
-      afe_config->wakenet_model_name_2 = nullptr;'''
-          if s.count(old_cfg) != 1:
-              raise SystemExit("Expected AFE WakeNet config block was not found exactly once")
-          s = s.replace(old_cfg, new_cfg)
-          old_result = '''    int model_index = result->wakenet_model_index - 1;
-      if (model_index < 0 || model_index >= static_cast<int>(wake_words_.size())) {
-          ESP_LOGE(TAG, "Invalid WakeNet model index: %d", result->wakenet_model_index);
-          return;
-      }
-
-      last_detected_wake_word_ = wake_words_[model_index];'''
-          new_result = '''    // Only WakeNet slot 1 is configured, and it contains Hi Jason alone.
-      if (result->wakenet_model_index != 1) {
-          ESP_LOGW(TAG, "Ignoring non-selected WakeNet model index: %d", result->wakenet_model_index);
-          return;
-      }
-      // wake_word_index is the phrase index within the selected model;
-      // wakenet_model_index identifies which WakeNet model fired.
-      int word_index = result->wake_word_index - 1;
-      if (word_index < 0 || word_index >= static_cast<int>(wake_words_.size())) {
-          ESP_LOGE(TAG, "Invalid Hi Jason wake-word index: %d", result->wake_word_index);
-          return;
-      }
-
-      last_detected_wake_word_ = wake_words_[word_index];
-      ESP_LOGI(TAG, "Selected wake word detected: %s", last_detected_wake_word_.c_str());'''
-          if s.count(old_result) != 1:
-              raise SystemExit("Expected WakeNet result mapping block was not found exactly once")
-          s = s.replace(old_result, new_result)
+          old = 'wakenet_model_name = esp_srmodel_filter(models_, ESP_WN_PREFIX, nullptr);'
+          assert s.count(old) == 1, "WakeNet selection source changed"
+          s = s.replace(old, 'wakenet_model_name = esp_srmodel_filter(models_, ESP_WN_PREFIX, "hijason");')
+          old = '    afe_config->wakenet_model_name = wake_detector_ == WakeDetector::kWakeNet\\n        ? wakenet_model_name\\n        : nullptr;'
+          assert s.count(old) == 1, "AFE config source changed"
+          s = s.replace(old, old + '\\n    // Explicitly disable WakeNet slot 2: Hi Jason is the sole wake word.\\n    afe_config->wakenet_model_name_2 = nullptr;')
+          old = '    int model_index = result->wakenet_model_index - 1;\\n    if (model_index < 0 || model_index >= static_cast<int>(wake_words_.size())) {\\n        ESP_LOGE(TAG, "Invalid WakeNet model index: %d", result->wakenet_model_index);\\n        return;\\n    }\\n\\n    last_detected_wake_word_ = wake_words_[model_index];'
+          new = '    if (result->wakenet_model_index != 1) {\\n        ESP_LOGW(TAG, "Ignoring non-selected WakeNet model index: %d", result->wakenet_model_index);\\n        return;\\n    }\\n    int word_index = result->wake_word_index - 1;\\n    if (word_index < 0 || word_index >= static_cast<int>(wake_words_.size())) {\\n        ESP_LOGE(TAG, "Invalid Hi Jason wake-word index: %d", result->wake_word_index);\\n        return;\\n    }\\n\\n    last_detected_wake_word_ = wake_words_[word_index];\\n    ESP_LOGI(TAG, "Selected wake word detected: %s", last_detected_wake_word_.c_str());'
+          assert s.count(old) == 1, "WakeNet result mapping source changed"
+          s = s.replace(old, new)
           p.write_text(s)
-          print("PASS: Hi Jason model selected; second WakeNet slot disabled; phrase index mapped correctly")
+          print("PASS: selected Hi Jason, disabled WakeNet slot 2, mapped phrase index")
           PY
 
       - name: Prepare custom Waveshare ESP32-S3-Zero board
