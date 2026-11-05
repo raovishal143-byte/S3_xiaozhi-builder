@@ -70,7 +70,6 @@ jobs:
           set -euo pipefail
           MODEL_INFO="xiaozhi-esp32/managed_components/espressif__esp-sr/model/wakenet_model/wn9_nihaoxiaozhi_tts/_MODEL_INFO_"
           test -f "$MODEL_INFO" || { echo "Missing XiaoZhi WakeNet9 model"; find xiaozhi-esp32/managed_components -iname '*nihaoxiaozhi*' -print || true; exit 1; }
-          test -f xiaozhi-esp32/build/ flasher_args.json 2>/dev/null || true
           cp xiaozhi-esp32/sdkconfig output-sdkconfig.tmp
           grep -q '^CONFIG_USE_AFE_WAKE_WORD=y$' output-sdkconfig.tmp
           grep -q '^CONFIG_SR_WN_WN9_NIHAOXIAOZHI_TTS=y$' output-sdkconfig.tmp
