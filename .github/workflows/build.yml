@@ -103,7 +103,7 @@ jobs:
             find xiaozhi-esp32/managed_components -maxdepth 6 -iname '*nihaoxiaozhi*' -print || true
             exit 1
           fi
-          echo "PASS: Jarvis model is present in the resolved ESP-SR dependency"
+          echo "PASS: XiaoZhi default wake model is present in the resolved ESP-SR dependency"
           cat "$MODEL_INFO"
 
       - name: Collect and verify firmware artifacts
@@ -203,7 +203,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: xiaozhi-firmware-s3-zero-jarvis
+          name: xiaozhi-firmware-s3-zero-simple
           path: output/
           retention-days: 90
 
@@ -286,23 +286,23 @@ jobs:
           (cd output && find . -type f -name '*.bin' -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
           echo '=== Verify complete packaged binary checksum manifest ==='
           (cd output && sha256sum -c SHA256SUMS.txt)
-          echo "PASS: Jarvis selected; 4MB flash and partition boundaries verified."
+          echo "PASS: XiaoZhi default wake phrase selected; 4MB flash and partition boundaries verified."
           ls -lah output/
 
       - name: Upload verified firmware
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: xiaozhi-firmware-s3-zero-jarvis
+          name: xiaozhi-firmware-s3-zero-simple
           path: output/
           retention-days: 90
 
       - name: Build summary
         if: success()
         run: |
-          echo "### Jarvis firmware build completed" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Simple XiaoZhi firmware build completed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Board: Waveshare ESP32-S3-Zero" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Wake word: Jarvis (offline WakeNet9)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Wake word: XiaoZhi predefined phrase (offline WakeNet9)" >> "$GITHUB_STEP_SUMMARY"
           echo "- Flash: 4MB; PSRAM: Quad 80MHz" >> "$GITHUB_STEP_SUMMARY"
           echo "- Partition layout: partitions/v2/4m.csv" >> "$GITHUB_STEP_SUMMARY"
           echo "- MultiNet custom wake word: disabled" >> "$GITHUB_STEP_SUMMARY"
