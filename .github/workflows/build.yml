@@ -54,21 +54,21 @@ jobs:
           s = p.read_text()
 
           old = """    playback_drained_notified_ = false;
-    audio_decode_queue_.push_back(std::move(packet));
-    audio_queue_cv_.notify_all();
-    return true;
+              audio_decode_queue_.push_back(std::move(packet));
+              audio_queue_cv_.notify_all();
+              return true;
           }"""
           new = """    playback_drained_notified_ = false;
-    static uint32_t opus_rx_log_count = 0;
-    ++opus_rx_log_count;
-    if (opus_rx_log_count <= 8 || opus_rx_log_count % 20 == 0) {
-        ESP_LOGI(TAG, "OPUS_RX: packet received bytes=%u rate=%d frame_ms=%d count=%u",
-                 (unsigned)packet->payload.size(), packet->sample_rate,
-                 packet->frame_duration, (unsigned)opus_rx_log_count);
-    }
-    audio_decode_queue_.push_back(std::move(packet));
-    audio_queue_cv_.notify_all();
-    return true;
+              static uint32_t opus_rx_log_count = 0;
+              ++opus_rx_log_count;
+              if (opus_rx_log_count <= 8 || opus_rx_log_count % 20 == 0) {
+                  ESP_LOGI(TAG, "OPUS_RX: packet received bytes=%u rate=%d frame_ms=%d count=%u",
+                           (unsigned)packet->payload.size(), packet->sample_rate,
+                           packet->frame_duration, (unsigned)opus_rx_log_count);
+              }
+              audio_decode_queue_.push_back(std::move(packet));
+              audio_queue_cv_.notify_all();
+              return true;
           }"""
           assert s.count(old) == 1, "Could not locate incoming Opus packet queue insertion"
           s = s.replace(old, new)
