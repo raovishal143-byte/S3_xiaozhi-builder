@@ -57,7 +57,7 @@ jobs:
     audio_decode_queue_.push_back(std::move(packet));
     audio_queue_cv_.notify_all();
     return true;
-}"""
+          }"""
           new = """    playback_drained_notified_ = false;
     static uint32_t opus_rx_log_count = 0;
     ++opus_rx_log_count;
@@ -69,7 +69,7 @@ jobs:
     audio_decode_queue_.push_back(std::move(packet));
     audio_queue_cv_.notify_all();
     return true;
-}"""
+          }"""
           assert s.count(old) == 1, "Could not locate incoming Opus packet queue insertion"
           s = s.replace(old, new)
 
