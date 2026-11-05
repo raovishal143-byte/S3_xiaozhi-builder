@@ -68,3 +68,5 @@ jobs:
           retention-days: 30
 
 # Rebuild after adding explicit ESP timer include to the microphone diagnostic.
+
+# Rebuild after the diagnostic uses std::sqrt.
