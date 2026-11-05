@@ -39,11 +39,25 @@ const boardCc = `#include "wifi_board.h"
 #include "button.h"
 #include "config.h"
 #include "led/gpio_led.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 class WaveshareS3ZeroBoard : public WifiBoard {
 private:
     Button boot_button_;
     GpioLed* status_led_ = nullptr;
+
+    static void StartupLedTask(void* arg) {
+        auto* self = static_cast<WaveshareS3ZeroBoard*>(arg);
+        for (int i = 0; i < 5; ++i) {
+            self->status_led_->TurnOn();
+            vTaskDelay(pdMS_TO_TICKS(180));
+            self->status_led_->TurnOff();
+            vTaskDelay(pdMS_TO_TICKS(180));
+        }
+        self->status_led_->TurnOff();
+        vTaskDelete(nullptr);
+    }
 
     void InitializeButtons() {
         boot_button_.OnClick([this]() {
@@ -63,6 +77,7 @@ public:
     WaveshareS3ZeroBoard() : boot_button_(BOOT_BUTTON_GPIO) {
         status_led_ = new GpioLed(BUILTIN_LED_GPIO);
         InitializeButtons();
+        xTaskCreate(StartupLedTask, "startup_led", 2048, this, 1, nullptr);
     }
 
     AudioCodec* GetAudioCodec() override {
@@ -146,9 +161,9 @@ const steadySpeaking = [
 ].join(String.fromCharCode(10));
 const blinkingSpeaking = [
   "        case kDeviceStateSpeaking:",
-  '            // Blink GPIO2 only while the assistant is speaking.',
+  '            // GPIO2 stays steadily ON only while XiaoZhi is answering.',
   "            SetBrightness(SPEAKING_BRIGHTNESS);",
-  "            StartContinuousBlink(180);",
+  "            TurnOn();",
   "            break;"
 ].join(String.fromCharCode(10));
 if (ledSource.includes(idleLed)) ledSource = ledSource.replace(idleLed, idleLedOff);
@@ -168,7 +183,7 @@ if (!appSource.includes('#include "startup_greeting.h"')) {
   appSource = appSource.replace('#include "application.h"', '#include "application.h"\n#include "startup_greeting.h"');
 }
 const audioStart = '    audio_service_.Initialize(codec);\n    audio_service_.Start();';
-const greetingStart = audioStart + '\n\n    // Keep local WakeNet active even before Wi-Fi or cloud activation.\n    audio_service_.EnableWakeWordDetection(true);\n\n    // Queue the embedded greeting once per boot; no network is needed.\n    Schedule([this]() {\n        startup_greeting_playing_ = true;\n        audio_service_.PlaySound(std::string_view(\n            reinterpret_cast<const char*>(STARTUP_GREETING_OGG),\n            STARTUP_GREETING_OGG_LEN));\n    });';
+const greetingStart = audioStart + '\n\n    // Queue the embedded greeting once per boot. Offline WakeNet starts\n    // after playback drains so startup output and microphone detection do not overlap.\n    Schedule([this]() {\n        startup_greeting_playing_ = true;\n        audio_service_.PlaySound(std::string_view(\n            reinterpret_cast<const char*>(STARTUP_GREETING_OGG),\n            STARTUP_GREETING_OGG_LEN));\n    });';
 if (appSource.includes(audioStart) && !appSource.includes('STARTUP_GREETING_OGG_LEN')) {
   appSource = appSource.replace(audioStart, greetingStart);
 } else if (!appSource.includes('STARTUP_GREETING_OGG_LEN')) {
@@ -186,7 +201,7 @@ else if (!appSource.includes('Offline wake word detected:')) throw new Error('Co
 // completion handler. The greeting must never invoke WakeWordInvoke itself.
 const oldPlaybackHandler = '        if (bits & MAIN_EVENT_PLAYBACK_DRAINED) {\n            if (pending_startup_greeting_ && GetDeviceState() == kDeviceStateIdle &&\n                audio_service_.IsPlaybackIdle()) {\n                pending_startup_greeting_ = false;\n                WakeWordInvoke("Jarvis");\n            }';
 if (appSource.includes(oldPlaybackHandler)) {
-  appSource = appSource.replace(oldPlaybackHandler, '        if (bits & MAIN_EVENT_PLAYBACK_DRAINED) {\n            if (startup_greeting_playing_ && audio_service_.IsPlaybackIdle()) {\n                startup_greeting_playing_ = false;\n            }');
+  appSource = appSource.replace(oldPlaybackHandler, '        if (bits & MAIN_EVENT_PLAYBACK_DRAINED) {\n            if (startup_greeting_playing_ && audio_service_.IsPlaybackIdle()) {\n                startup_greeting_playing_ = false;\n                audio_service_.EnableWakeWordDetection(true);\n            }');
 } else {
   const marker = '        if (bits & MAIN_EVENT_PLAYBACK_DRAINED) {';
   const p = appSource.indexOf(marker);
