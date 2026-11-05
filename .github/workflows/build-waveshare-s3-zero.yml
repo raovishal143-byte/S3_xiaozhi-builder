@@ -26,7 +26,7 @@ jobs:
           path: xiaozhi-esp32
           submodules: recursive
 
-      - name: Build firmware with Jarvis wake word
+      # Re-run after matching the board's 4MB partition layout.\n      - name: Build firmware with Jarvis wake word
         uses: espressif/esp-idf-ci-action@v1
         with:
           esp_idf_version: v6.0.2
