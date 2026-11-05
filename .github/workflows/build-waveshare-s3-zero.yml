@@ -1,0 +1,51 @@
+name: Build Waveshare ESP32-S3-Zero XiaoZhi Firmware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-waveshare-s3-zero.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout builder repository
+        uses: actions/checkout@v4
+
+      - name: Checkout customized XiaoZhi firmware source
+        uses: actions/checkout@v4
+        with:
+          repository: raovishal143-byte/xiaozhi-esp32
+          ref: waveshare-s3-zero-voice-assistant
+          path: xiaozhi-esp32
+          submodules: recursive
+
+      - name: Build firmware with Jarvis wake word
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v6.0.2
+          target: esp32s3
+          path: xiaozhi-esp32
+          command: python scripts/build.py waveshare-esp32-s3-zero-xiaozhi --language en-US --wake-word wn9_jarvis_tts
+
+      - name: Verify merged firmware
+        run: |
+          test -s xiaozhi-esp32/build/merged-binary.bin
+          ls -lh xiaozhi-esp32/build/merged-binary.bin
+          sha256sum xiaozhi-esp32/build/merged-binary.bin
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: waveshare-esp32-s3-zero-xiaozhi-jarvis
+          path: |
+            xiaozhi-esp32/build/merged-binary.bin
+            xiaozhi-esp32/sdkconfig
+          if-no-files-found: error
+          retention-days: 30
