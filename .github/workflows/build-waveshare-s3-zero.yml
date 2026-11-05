@@ -35,7 +35,7 @@ jobs:
           ffmpeg -y -i /tmp/hi_there.wav -ac 1 -ar 24000 -c:a libvorbis -q:a 4 xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg
           python xiaozhi-esp32/scripts/gen_lang.py --language en-US --output xiaozhi-esp32/main/assets/lang_config.h
 
-      # Re-run after matching the board's 4MB partition layout.
+      # The board config selects Quad SPI PSRAM for the ESP32-S3FH4R2 chip.
       - name: Build firmware with Jarvis wake word
         uses: espressif/esp-idf-ci-action@v1
         with:
@@ -53,7 +53,7 @@ jobs:
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: waveshare-esp32-s3-zero-xiaozhi-jarvis
+          name: waveshare-s3-zero-jarvis-quad-psram
           path: |
             xiaozhi-esp32/build/merged-binary.bin
             xiaozhi-esp32/sdkconfig
