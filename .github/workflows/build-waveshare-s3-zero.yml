@@ -26,6 +26,15 @@ jobs:
           path: xiaozhi-esp32
           submodules: recursive
 
+      - name: Generate spoken startup greeting
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y espeak-ng ffmpeg
+          mkdir -p xiaozhi-esp32/main/assets/locales/en-US
+          espeak-ng -v en-us -s 148 -a 160 -w /tmp/hi_there.wav "Hi there"
+          ffmpeg -y -i /tmp/hi_there.wav -ac 1 -ar 24000 -c:a libvorbis -q:a 4 xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg
+          python xiaozhi-esp32/scripts/gen_lang.py --language en-US --output xiaozhi-esp32/main/assets/lang_config.h
+
       # Re-run after matching the board's 4MB partition layout.
       - name: Build firmware with Jarvis wake word
         uses: espressif/esp-idf-ci-action@v1
