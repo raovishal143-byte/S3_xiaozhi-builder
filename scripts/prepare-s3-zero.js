@@ -215,6 +215,8 @@ fs.writeFileSync(ledSourcePath, ledSource);
 
 // Wake-word detections are local. When the network/protocol is unavailable,
 // log the detection rather than silently discarding it.
+const appSourcePath = path.join(root, "main", "application.cc");
+let appSource = fs.readFileSync(appSourcePath, "utf8");
 const noProtocol = 'void Application::HandleWakeWordDetectedEvent() {\n    if (!protocol_) {\n        return;\n    }';
 const offlineWake = 'void Application::HandleWakeWordDetectedEvent() {\n    if (!protocol_) {\n        ESP_LOGI(TAG, "Offline wake word detected: %s (network unavailable)", audio_service_.GetLastWakeWord().c_str());\n        audio_service_.EnableWakeWordDetection(true);\n        return;\n    }';
 if (appSource.includes(noProtocol)) appSource = appSource.replace(noProtocol, offlineWake);
