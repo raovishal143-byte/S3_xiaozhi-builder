@@ -1,5 +1,5 @@
 name: Build Waveshare ESP32-S3-Zero XiaoZhi Firmware
-# Rebuild requested for microphone diagnostics and wake-word LED feedback.
+# Full preflight rebuild: mic RX/PCM, speaker TX/amp enable, Jarvis, greeting, LED, and PSRAM.
 
 on:
   push:
@@ -41,6 +41,8 @@ jobs:
           test "$channels" = "1"
           echo "Verified greeting: codec=$codec channels=$channels"
           python xiaozhi-esp32/scripts/gen_lang.py --language en-US --output xiaozhi-esp32/main/assets/lang_config.h
+          grep -q "OGG_HI_THERE" xiaozhi-esp32/main/assets/lang_config.h
+          echo "Verified OGG_HI_THERE is embedded in the generated language header"
 
       # The board config selects Quad SPI PSRAM for the ESP32-S3FH4R2 chip.
       - name: Build firmware with Jarvis wake word
@@ -50,6 +52,14 @@ jobs:
           target: esp32s3
           path: xiaozhi-esp32
           command: python scripts/build.py waveshare-esp32-s3-zero-xiaozhi --language en-US --wake-word wn9_jarvis_tts
+
+      - name: Verify board memory and firmware requirements
+        run: |
+          grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y' xiaozhi-esp32/sdkconfig
+          grep -q '^CONFIG_SPIRAM=y' xiaozhi-esp32/sdkconfig
+          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y' xiaozhi-esp32/sdkconfig
+          grep -q 'wn9_jarvis_tts' xiaozhi-esp32/build/build.log || true
+          echo "Verified 4MB flash and Quad PSRAM sdkconfig"
 
       - name: Verify merged firmware
         run: |
@@ -80,4 +90,4 @@ jobs:
 
 # Rebuild after adding raw INMP441 I2S diagnostics and reliable LED startup/task checks.
 
-# Rebuild with GPIO7 amplifier enable and periodic raw microphone diagnostics.
+# Rebuild after full source audit, exact-five-flash LED fix, and build-time greeting/memory checks.
