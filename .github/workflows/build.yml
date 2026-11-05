@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/clean-s3-zero-firmware
+      - feature/hi-jason-wake-word
   workflow_dispatch:
 
 permissions:
