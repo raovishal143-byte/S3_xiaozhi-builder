@@ -178,7 +178,7 @@ if (!kconfig.includes("config BOARD_TYPE_S3_ZERO")) {
 
 let cmake = fs.readFileSync(cmakePath, "utf8");
 if (!cmake.includes("CONFIG_BOARD_TYPE_S3_ZERO")) {
-  const marker = "\nif(NOT BOARD_DIR AND NOT CMAKE_BUILD_EARLY_EXPANSION)";
+  const marker = "if(NOT BOARD_DIR AND NOT CMAKE_BUILD_EARLY_EXPANSION)";
   const pos = cmake.indexOf(marker);
   if (pos < 0) throw new Error("Could not locate BOARD_DIR validation insertion point");
   cmake = cmake.slice(0, pos) +
