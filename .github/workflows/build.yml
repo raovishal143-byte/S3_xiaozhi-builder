@@ -6,6 +6,7 @@ on:
       - esp32-s3-zero-support
       - feature/hey-buddy-voice
       - feature/jarvis-clean-audio-led
+      - fresh-jarvis-gpio4-5-6-7-8-9-led2-rgb21
   workflow_dispatch:
     inputs:
       board:
