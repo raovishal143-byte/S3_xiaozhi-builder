@@ -46,6 +46,26 @@ private:
     CircularStrip rgb_{JARVIS_RGB_LED_GPIO, 1};
     std::atomic<bool> startup_active_{true};
 
+    static void ExternalLedTask(void* arg) {
+        auto* self = static_cast<JarvisStatusLed*>(arg);
+        bool phase = false;
+        while (true) {
+            auto state = Application::GetInstance().GetDeviceState();
+            if (state == kDeviceStateIdle) {
+                self->SetExternal(true); // standby: solid ON
+                vTaskDelay(pdMS_TO_TICKS(100));
+            } else if (state == kDeviceStateSpeaking || state == kDeviceStateNotifying) {
+                phase = !phase;
+                self->SetExternal(phase); // response: blink with the green external LED
+                vTaskDelay(pdMS_TO_TICKS(350));
+            } else {
+                self->SetExternal(false);
+                phase = false;
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+        }
+    }
+
     static void StartupTask(void* arg) {
         auto* self = static_cast<JarvisStatusLed*>(arg);
         const StripColor green{0, 64, 0};
@@ -74,6 +94,7 @@ public:
         io.intr_type = GPIO_INTR_DISABLE;
         ESP_ERROR_CHECK(gpio_config(&io));
         SetExternal(false);
+        xTaskCreate(ExternalLedTask, "jarvis_external_led", 2048, this, 2, nullptr);
         xTaskCreate(StartupTask, "jarvis_startup_led", 3072, this, 2, nullptr);
     }
 
@@ -96,7 +117,6 @@ public:
             case kDeviceStateSpeaking:
             case kDeviceStateNotifying:
                 rgb_.Blink({0, 64, 0}, 350); // green: assistant speaking
-                SetExternal(true); // external LED also green/ON while speaking
                 break;
             default:
                 rgb_.SetAllColor({0, 0, 0});
