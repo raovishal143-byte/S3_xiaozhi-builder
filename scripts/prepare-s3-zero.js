@@ -195,12 +195,4 @@ if (!cmake.includes("list(APPEND MAIN_PRIV_REQUIRES_EXTRA espressif__led_strip)"
 }
 fs.writeFileSync(cmakePath, cmake);
 
-// Preserve local wake-word handling while disconnected; never fabricate a cloud session.
-const appPath = path.join(root, "main", "application.cc");
-let app = fs.readFileSync(appPath, "utf8");
-const original = 'void Application::HandleWakeWordDetectedEvent() {\n    if (!protocol_) {\n        return;\n    }';
-const replacement = 'void Application::HandleWakeWordDetectedEvent() {\n    if (!protocol_) {\n        ESP_LOGI(TAG, "Offline wake word detected: %s (network unavailable)", audio_service_.GetLastWakeWord().c_str());\n        audio_service_.EnableWakeWordDetection(true);\n        return;\n    }';
-if (app.includes(original)) app = app.replace(original, replacement);
-fs.writeFileSync(appPath, app);
-
 console.log("Prepared Waveshare ESP32-S3-Zero JARVIS board: mic 4/5/6, speaker 7/8/9, external LED 2, RGB LED 21; amplifier SD untouched.");
