@@ -121,6 +121,11 @@ void JarvisLed::TimerCallback(void* arg) {
 }
 
 void JarvisLed::OnStateChanged() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        // Do not let a fast Wi-Fi/activation transition truncate the five red boot flashes.
+        if (mode_ == Mode::Startup && startup_edges_remaining_ > 0) return;
+    }
     switch (Application::GetInstance().GetDeviceState()) {
         case kDeviceStateStarting:
             SetMode(Mode::Startup);
