@@ -182,7 +182,7 @@ if (!cmake.includes("CONFIG_BOARD_TYPE_S3_ZERO")) {
   const pos = cmake.indexOf(marker);
   if (pos < 0) throw new Error("Could not locate board-selection end marker in pinned XiaoZhi revision");
   cmake = cmake.slice(0, pos) +
-    set(BOARD_TYPE "s3-zero")
+    '\nelseif(CONFIG_BOARD_TYPE_S3_ZERO)\n    set(BOARD_TYPE "s3-zero")' +
     cmake.slice(pos);
 }
 if (!cmake.includes("list(APPEND MAIN_PRIV_REQUIRES_EXTRA espressif__led_strip)")) {
