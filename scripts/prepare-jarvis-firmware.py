@@ -99,6 +99,78 @@ elseif(CONFIG_BOARD_TYPE_BREAD_COMPACT_WIFI)
         });
     }""",
     )
+
+    app_h = XIAOZHI / "main" / "application.h"
+    replace_once(
+        app_h,
+        "    bool startup_completed_ = false;\\n",
+        "    bool startup_completed_ = false;\\n    bool pending_startup_greeting_ = false;\\n",
+    )
+    replace_once(
+        app,
+        """            if (audio_service_.IsPlaybackIdle()) {
+                notify_player_.OnPlaybackDrained();
+            }""",
+        """            if (audio_service_.IsPlaybackIdle()) {
+                notify_player_.OnPlaybackDrained();
+                if (pending_startup_greeting_) {
+                    pending_startup_greeting_ = false;
+                    // Only enter standby after the local greeting has fully drained.
+                    SetDeviceState(kDeviceStateIdle);
+                }
+            }""",
+    )
+    replace_once(
+        app,
+        """void Application::HandleActivationDoneEvent() {
+    ESP_LOGI(TAG, "Activation done");
+
+    SystemInfo::PrintHeapStats();
+    SetDeviceState(kDeviceStateIdle);
+""",
+        """void Application::HandleActivationDoneEvent() {
+    ESP_LOGI(TAG, "Activation done");
+
+    SystemInfo::PrintHeapStats();
+""",
+    )
+    replace_once(
+        app,
+        """    if (first_startup_completion) {
+        startup_completed_ = true;
+        pending_startup_wake_word_hint_ = !has_error;
+    }
+""",
+        """    if (first_startup_completion) {
+        startup_completed_ = true;
+        pending_startup_wake_word_hint_ = !has_error;
+    }
+    if (has_error || !first_startup_completion) {
+        SetDeviceState(kDeviceStateIdle);
+    }
+""",
+    )
+    replace_once(
+        app,
+        """    if (!has_error && first_startup_completion) {
+        Schedule([this]() {
+            // Speak the locally generated greeting exactly once after first activation.
+            audio_service_.PlaySound(std::string_view(
+                reinterpret_cast<const char*>(kJarvisGreetingOgg), sizeof(kJarvisGreetingOgg)));
+        });
+    }""",
+        """    if (!has_error && first_startup_completion) {
+        pending_startup_greeting_ = true;
+        // Prevent the offline wake detector from hearing the device's own greeting.
+        audio_service_.EnableWakeWordDetection(false);
+        Schedule([this]() {
+            // Speak the locally generated greeting exactly once after first activation.
+            audio_service_.PlaySound(std::string_view(
+                reinterpret_cast<const char*>(kJarvisGreetingOgg), sizeof(kJarvisGreetingOgg)));
+        });
+    }""",
+    )
+
     print("JARVIS board profile, VAD LED states and one-time startup greeting installed.")
 
 
