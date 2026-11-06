@@ -75,7 +75,7 @@ void JarvisLed::Render(bool on) {
 
 void JarvisLed::SetMode(Mode mode) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (timer_) ESP_ERROR_CHECK(esp_timer_stop(timer_));
+    if (timer_) esp_timer_stop(timer_);
     mode_ = mode;
     startup_edges_remaining_ = 0;
 
