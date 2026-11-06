@@ -36,6 +36,55 @@ jobs:
             python3 ../scripts/generate-greeting-header.py &&
             python3 scripts/build.py jarvis-s3-zero --language en-US --wake-word wn9_jarvis_tts
 
+      - name: Verify 4MB flash configuration
+        if: success()
+        run: |
+          grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y        run: |
+          mkdir -p output
+          find xiaozhi-esp32/build -maxdepth 2 -type f -name '*.bin' -exec cp {} output/ \;
+          cp xiaozhi-esp32/sdkconfig output/sdkconfig.txt
+          cp xiaozhi-esp32/main/boards/jarvis-s3-zero/config.h output/
+          cp xiaozhi-esp32/build/merged-binary.bin output/ 2>/dev/null || true
+          ls -lh output/
+
+      - name: Upload JARVIS firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-waveshare-esp32-s3-zero
+          path: output/
+          retention-days: 90
+
+      - name: Show failure logs
+        if: failure()
+        run: |
+          find xiaozhi-esp32/build/log -type f -maxdepth 1 -print -exec tail -150 {} \; 2>/dev/null || true
+ xiaozhi-esp32/sdkconfig
+          grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/4m.csv"        run: |
+          mkdir -p output
+          find xiaozhi-esp32/build -maxdepth 2 -type f -name '*.bin' -exec cp {} output/ \;
+          cp xiaozhi-esp32/sdkconfig output/sdkconfig.txt
+          cp xiaozhi-esp32/main/boards/jarvis-s3-zero/config.h output/
+          cp xiaozhi-esp32/build/merged-binary.bin output/ 2>/dev/null || true
+          ls -lh output/
+
+      - name: Upload JARVIS firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-waveshare-esp32-s3-zero
+          path: output/
+          retention-days: 90
+
+      - name: Show failure logs
+        if: failure()
+        run: |
+          find xiaozhi-esp32/build/log -type f -maxdepth 1 -print -exec tail -150 {} \; 2>/dev/null || true
+ xiaozhi-esp32/sdkconfig
+          MERGED_SIZE=$(stat -c%s xiaozhi-esp32/build/merged-binary.bin)
+          echo "Merged firmware size: ${MERGED_SIZE} bytes"
+          test "${MERGED_SIZE}" -le 4194304
+
       - name: Collect firmware files
         if: success()
         run: |
