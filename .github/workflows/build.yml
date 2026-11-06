@@ -1,111 +1,60 @@
-# Build XiaoZhi ESP32 Firmware
-# Triggered manually via workflow_dispatch or via GitHub API
-
-name: Build XiaoZhi Firmware
+name: Build JARVIS Firmware
 
 on:
+  push:
+    branches:
+      - jarvis-english-clean-start
   workflow_dispatch:
-    inputs:
-      board:
-        description: 'Board type (directory name under main/boards/)'
-        required: true
-        type: string
-        default: 'bread-compact-wifi'
-      chip:
-        description: 'ESP32 chip target (esp32, esp32s3, esp32c3, esp32c5, esp32c6, esp32p4)'
-        required: true
-        type: string
-        default: 'esp32s3'
-      config_json:
-        description: 'Board config as JSON (pins, display, language, extra_pins)'
-        required: false
-        type: string
-        default: '{}'
-      language:
-        description: 'UI language code'
-        required: false
-        type: string
-        default: 'en_US'
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 45
     steps:
-      - name: Checkout with submodules
+      - name: Checkout repository and XiaoZhi submodule
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Generate board config
+      - name: Install board profile and apply JARVIS firmware patches
         run: |
-          echo "Using build_config.json"
+          python3 scripts/prepare-jarvis-firmware.py
           node scripts/generate-config.js build_config.json
 
-          echo "Applying ESP32-S3-Zero 4MB Flash setting"
-          sed -i '/^CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y$/d' xiaozhi-esp32/sdkconfig.defaults
-          sed -i '/^# CONFIG_ESPTOOLPY_FLASHSIZE_16MB is not set$/d' xiaozhi-esp32/sdkconfig.defaults
-          echo "# CONFIG_ESPTOOLPY_FLASHSIZE_16MB is not set" >> xiaozhi-esp32/sdkconfig.defaults
-          echo "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y" >> xiaozhi-esp32/sdkconfig.defaults
-
-          echo "Checking Octal PSRAM settings"
-          grep -E 'CONFIG_SPIRAM=|CONFIG_SPIRAM_MODE_OCT=|CONFIG_SPIRAM_SPEED_80M=' xiaozhi-esp32/sdkconfig.defaults
-
-      - name: Verify generated config
-        run: |
-          echo "=== config.h (first 60 lines) ==="
-          head -60 xiaozhi-esp32/main/boards/${{ inputs.board }}/config.h
-          echo ""
-          echo "=== sdkconfig.defaults (last 30 lines) ==="
-          tail -30 xiaozhi-esp32/sdkconfig.defaults
-          echo ""
-          echo "=== sdkconfig.defaults line count ==="
-          wc -l xiaozhi-esp32/sdkconfig.defaults
-
-      - name: Build firmware (ESP-IDF v6.0.2)
+      - name: Build ESP32-S3-Zero firmware with offline Jarvis wake model
         uses: espressif/esp-idf-ci-action@v1
         with:
           esp_idf_version: v6.0.2
-          target: ${{ inputs.chip }}
+          target: esp32s3
           path: xiaozhi-esp32
+          command: >-
+            apt-get update &&
+            apt-get install -y espeak-ng ffmpeg &&
+            python3 ../scripts/generate-greeting-header.py &&
+            python3 scripts/build.py jarvis-s3-zero --language en-US --wake-word wn9_jarvis_tts
 
-      - name: Show build logs if failed
-        if: failure()
-        run: |
-          echo "=== Build output (last 200 lines) ==="
-          tail -200 xiaozhi-esp32/build/log/idf_py_stdout_output_* 2>/dev/null || echo "No stdout log"
-          echo "=== Build errors ==="
-          tail -200 xiaozhi-esp32/build/log/idf_py_stderr_output_* 2>/dev/null || echo "No stderr log"
-
-      - name: Collect build artifacts
+      - name: Collect firmware files
         if: success()
         run: |
           mkdir -p output
-          cp xiaozhi-esp32/build/*.bin output/ 2>/dev/null || true
-          cp xiaozhi-esp32/build/bootloader/*.bin output/ 2>/dev/null || true
-          cp xiaozhi-esp32/build/partition_table/*.bin output/ 2>/dev/null || true
-          cp xiaozhi-esp32/sdkconfig output/sdkconfig.txt 2>/dev/null || true
-          cp xiaozhi-esp32/main/boards/${{ inputs.board }}/config.h output/ 2>/dev/null || true
-          ls -la output/
+          find xiaozhi-esp32/build -maxdepth 2 -type f -name '*.bin' -exec cp {} output/ \;
+          cp xiaozhi-esp32/sdkconfig output/sdkconfig.txt
+          cp xiaozhi-esp32/main/boards/jarvis-s3-zero/config.h output/
+          cp xiaozhi-esp32/build/merged-binary.bin output/ 2>/dev/null || true
+          ls -lh output/
 
-      - name: Upload firmware
+      - name: Upload JARVIS firmware
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: xiaozhi-firmware-${{ inputs.board }}-${{ inputs.chip }}
+          name: jarvis-waveshare-esp32-s3-zero
           path: output/
           retention-days: 90
 
-      - name: Build summary
-        if: success()
+      - name: Show failure logs
+        if: failure()
         run: |
-          FW_SIZE=$(du -sh xiaozhi-esp32/build/*.bin 2>/dev/null | head -1 | cut -f1 || echo "unknown")
-          echo "### ✅ Firmware Built :rocket:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Board:** ${{ inputs.board }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Chip:** ${{ inputs.chip }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Language:** ${{ inputs.language }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
-          echo "- **Chip:** ${{ inputs.chip }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Language:** ${{ inputs.language }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Binaries:** $FW_SIZE" >> $GITHUB_STEP_SUMMARY
+          find xiaozhi-esp32/build/log -type f -maxdepth 1 -print -exec tail -150 {} \; 2>/dev/null || true
