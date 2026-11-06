@@ -1,0 +1,14 @@
+{
+  "type": "jarvis-s3-zero",
+  "target": "esp32s3",
+  "builds": [
+    {
+      "name": "jarvis-s3-zero",
+      "sdkconfig_append": [
+        "CONFIG_SPIRAM=y",
+        "CONFIG_SPIRAM_MODE_OCT=y",
+        "CONFIG_SPIRAM_SPEED_80M=y"
+      ]
+    }
+  ]
+}
