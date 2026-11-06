@@ -12,5 +12,12 @@
         "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions/v2/4m.csv\""
       ]
     }
-  ]
+  ],
+  "led_behavior": {
+    "startup": {"onboard": "red", "blinks": 5},
+    "standby": {"onboard": "off", "external": "solid_on"},
+    "listening": {"onboard": "blue_blink"},
+    "processing": {"onboard": "blue_blink"},
+    "speaking": {"onboard": "green_blink", "external": "green_blink", "synchronized": true}
+  }
 }

@@ -5,6 +5,12 @@
 
 class JarvisS3ZeroBoard final : public WifiBoard {
 public:
+    JarvisS3ZeroBoard() {
+        // Create the WS2812 controller before Application enters its Starting state.
+        // This guarantees the five red startup flashes are not missed.
+        (void)GetLed();
+    }
+
     AudioCodec* GetAudioCodec() override {
         static NoAudioCodecSimplex codec(
             AUDIO_INPUT_SAMPLE_RATE, AUDIO_OUTPUT_SAMPLE_RATE,

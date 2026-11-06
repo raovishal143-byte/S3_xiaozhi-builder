@@ -15,7 +15,7 @@ JarvisLed::JarvisLed(gpio_num_t rgb_gpio, gpio_num_t external_gpio)
     gpio_cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
     gpio_cfg.intr_type = GPIO_INTR_DISABLE;
     ESP_ERROR_CHECK(gpio_config(&gpio_cfg));
-    gpio_set_level(external_gpio_, 0);
+    ESP_ERROR_CHECK(gpio_set_level(external_gpio_, 0));
 
     led_strip_config_t strip_cfg = {};
     strip_cfg.strip_gpio_num = rgb_gpio;
@@ -36,6 +36,10 @@ JarvisLed::JarvisLed(gpio_num_t rgb_gpio, gpio_num_t external_gpio)
     timer_args.name = "jarvis_led";
     timer_args.skip_unhandled_events = true;
     ESP_ERROR_CHECK(esp_timer_create(&timer_args, &timer_));
+
+    // Start the red boot pattern immediately when the board creates this LED.
+    // The board constructor forces LED creation before Application enters Starting.
+    SetMode(Mode::Startup);
 }
 
 JarvisLed::~JarvisLed() {
@@ -55,10 +59,10 @@ void JarvisLed::Render(bool on) {
     uint8_t r = 0, g = 0, b = 0;
     if (on) {
         switch (mode_) {
-            case Mode::Startup:
-            case Mode::Speaking:   r = 0;  g = 24; b = 0;  break;
-            case Mode::Listening:  r = 0;  g = 0;  b = 24; break;
-            case Mode::Processing: r = 24; g = 16; b = 0;  break;
+            case Mode::Startup:     r = 24; g = 0;  b = 0;  break; // red
+            case Mode::Speaking:    r = 0;  g = 24; b = 0;  break; // green
+            case Mode::Listening:   r = 0;  g = 0;  b = 24; break; // blue
+            case Mode::Processing:  r = 0;  g = 0;  b = 24; break; // blue
             default: break;
         }
     }
@@ -66,12 +70,12 @@ void JarvisLed::Render(bool on) {
     ESP_ERROR_CHECK(led_strip_refresh(strip_));
 
     const bool external_on = on && mode_ == Mode::Speaking;
-    gpio_set_level(external_gpio_, external_on ? 1 : 0);
+    ESP_ERROR_CHECK(gpio_set_level(external_gpio_, external_on ? 1 : 0));
 }
 
 void JarvisLed::SetMode(Mode mode) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (timer_) esp_timer_stop(timer_);
+    if (timer_) ESP_ERROR_CHECK(esp_timer_stop(timer_));
     mode_ = mode;
     startup_edges_remaining_ = 0;
 
@@ -85,7 +89,7 @@ void JarvisLed::SetMode(Mode mode) {
 
     if (mode_ == Mode::Standby) {
         Render(false);
-        gpio_set_level(external_gpio_, 1);
+        ESP_ERROR_CHECK(gpio_set_level(external_gpio_, 1));
         return;
     }
 
@@ -103,7 +107,7 @@ void JarvisLed::OnTimer() {
     if (mode_ == Mode::Startup) {
         --startup_edges_remaining_;
         if (startup_edges_remaining_ <= 0) {
-            esp_timer_stop(timer_);
+            ESP_ERROR_CHECK(esp_timer_stop(timer_));
             mode_ = Mode::Off;
             Render(false);
             return;
@@ -149,7 +153,7 @@ void JarvisLed::OnVoiceActivityChanged(bool active) {
         voice_seen_ = true;
         SetMode(Mode::Listening);
     } else if (voice_seen_) {
-        // User has finished speaking; remain in listening state while the request is processed.
+        // While Jarvis processes the captured speech, retain the requested blue blink.
         SetMode(Mode::Processing);
     }
 }
