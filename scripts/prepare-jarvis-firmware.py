@@ -103,8 +103,8 @@ elseif(CONFIG_BOARD_TYPE_BREAD_COMPACT_WIFI)
     app_h = XIAOZHI / "main" / "application.h"
     replace_once(
         app_h,
-        "    bool startup_completed_ = false;\\n",
-        "    bool startup_completed_ = false;\\n    bool pending_startup_greeting_ = false;\\n",
+        "    bool startup_completed_ = false;\n",
+        "    bool startup_completed_ = false;\n    bool pending_startup_greeting_ = false;\n",
     )
     replace_once(
         app,
