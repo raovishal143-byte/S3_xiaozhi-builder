@@ -190,7 +190,7 @@ if (!cmake.includes("list(APPEND MAIN_PRIV_REQUIRES_EXTRA espressif__led_strip)"
   const pos = cmake.indexOf(marker);
   if (pos < 0) throw new Error("Could not locate component dependency insertion point");
   cmake = cmake.slice(0, pos) +
-    marker + '\nlist(APPEND MAIN_PRIV_REQUIRES_EXTRA led_strip)' +
+    marker + '\nlist(APPEND MAIN_PRIV_REQUIRES_EXTRA espressif__led_strip)' +
     cmake.slice(pos + marker.length);
 }
 fs.writeFileSync(cmakePath, cmake);
