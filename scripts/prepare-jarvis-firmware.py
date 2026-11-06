@@ -22,6 +22,16 @@ def main():
     if not (XIAOZHI / "main" / "Kconfig.projbuild").exists():
         raise SystemExit("XiaoZhi submodule was not checked out")
 
+    # XiaoZhi upstream defaults ESP32-S3 to Octal PSRAM. The Waveshare
+    # ESP32-S3-Zero uses 2 MB Quad-SPI PSRAM, so override the upstream default
+    # before CMake/Kconfig generates sdkconfig. sdkconfig_append alone is not
+    # sufficient when the upstream default has already selected Octal mode.
+    replace_once(
+        XIAOZHI / "sdkconfig.defaults.esp32s3",
+        "CONFIG_SPIRAM_MODE_OCT=y",
+        "CONFIG_SPIRAM_MODE_QUAD=y",
+    )
+
     BOARD_DST.mkdir(parents=True, exist_ok=True)
     for name in ("config.h", "config.json", "jarvis_led.h", "jarvis_led.cc", "jarvis_s3_zero_board.cc"):
         shutil.copy2(BOARD_SRC / name, BOARD_DST / name)
