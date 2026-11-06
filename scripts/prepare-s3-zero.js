@@ -7,7 +7,7 @@ const kconfigPath = path.join(root, "main", "Kconfig.projbuild");
 const cmakePath = path.join(root, "main", "CMakeLists.txt");
 const boardDir = path.join(root, "main", "boards", "s3-zero");
 
-const configH = \`#ifndef _BOARD_CONFIG_H_
+const configH = `#ifndef _BOARD_CONFIG_H_
 #define _BOARD_CONFIG_H_
 #include <driver/gpio.h>
 #define AUDIO_INPUT_SAMPLE_RATE  16000
@@ -26,9 +26,9 @@ const configH = \`#ifndef _BOARD_CONFIG_H_
 #define JARVIS_RGB_LED_GPIO GPIO_NUM_21
 #define BOOT_BUTTON_GPIO GPIO_NUM_0
 #endif
-\`;
+`;
 
-const boardCc = \`#include "wifi_board.h"
+const boardCc = `#include "wifi_board.h"
 #include "codecs/no_audio_codec.h"
 #include "application.h"
 #include "button.h"
@@ -159,7 +159,7 @@ public:
 };
 
 DECLARE_BOARD(WaveshareS3ZeroBoard);
-\`;
+`;
 
 fs.mkdirSync(boardDir, { recursive: true });
 fs.writeFileSync(path.join(boardDir, "config.h"), configH);
