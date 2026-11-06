@@ -4,7 +4,7 @@
 
 // Waveshare ESP32-S3-Zero: 4 MB Flash, 2 MB PSRAM.
 #define AUDIO_INPUT_SAMPLE_RATE  16000
-#define AUDIO_OUTPUT_SAMPLE_RATE 32000
+#define AUDIO_OUTPUT_SAMPLE_RATE 48000
 
 // Separate full-duplex I2S controllers are not required for these modules.
 #define AUDIO_I2S_METHOD_SIMPLEX
