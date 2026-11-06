@@ -54,7 +54,7 @@ jobs:
         if: success()
         run: |
           mkdir -p output
-          find xiaozhi-esp32/build -maxdepth 2 -type f -name '*.bin' -exec cp {} output/ \\;
+          find xiaozhi-esp32/build -maxdepth 2 -type f -name '*.bin' -exec cp {} output/ +
           cp xiaozhi-esp32/sdkconfig output/sdkconfig.txt
           cp xiaozhi-esp32/main/boards/jarvis-s3-zero/config.h output/
           cp xiaozhi-esp32/build/merged-binary.bin output/
@@ -71,4 +71,4 @@ jobs:
       - name: Show failure logs
         if: failure()
         run: |
-          find xiaozhi-esp32/build/log -type f -maxdepth 1 -print -exec tail -150 {} \\; 2>/dev/null || true
+          find xiaozhi-esp32/build/log -type f -maxdepth 1 -print -exec tail -150 {} + 2>/dev/null || true
