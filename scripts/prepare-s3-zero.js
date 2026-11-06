@@ -178,14 +178,14 @@ if (!kconfig.includes("config BOARD_TYPE_S3_ZERO")) {
 
 let cmake = fs.readFileSync(cmakePath, "utf8");
 if (!cmake.includes("CONFIG_BOARD_TYPE_S3_ZERO")) {
-  const marker = "\nendif()\n\nif(MANUFACTURER)";
+  const marker = "\nif(NOT BOARD_DIR AND NOT CMAKE_BUILD_EARLY_EXPANSION)";
   const pos = cmake.indexOf(marker);
-  if (pos < 0) throw new Error("Could not locate board-selection CMake insertion point");
+  if (pos < 0) throw new Error("Could not locate BOARD_DIR validation insertion point");
   cmake = cmake.slice(0, pos) +
-    '\nelseif(CONFIG_BOARD_TYPE_S3_ZERO)\n    set(BOARD_TYPE "s3-zero")\n    set(BOARD_NAME "waveshare-esp32-s3-zero")' +
+    '\nelseif(CONFIG_BOARD_TYPE_S3_ZERO)\n    set(BOARD_DIR "s3-zero")' +
     cmake.slice(pos);
 }
-if (!cmake.includes("list(APPEND MAIN_PRIV_REQUIRES_EXTRA led_strip)")) {
+if (!cmake.includes("list(APPEND MAIN_PRIV_REQUIRES_EXTRA espressif__led_strip)")) {
   const marker = 'set(MAIN_PRIV_REQUIRES_EXTRA "")';
   const pos = cmake.indexOf(marker);
   if (pos < 0) throw new Error("Could not locate component dependency insertion point");
