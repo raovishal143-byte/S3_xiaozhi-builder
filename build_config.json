@@ -1,5 +1,5 @@
 {
-  "board": "bread-compact-wifi",
+  "board": "jarvis-s3-zero",
   "chip": "esp32s3",
   "language": "en_US",
   "onboard_led": true,
@@ -18,7 +18,10 @@
   "assistant": {
     "platform": "xiaozhi",
     "wake_word": "Jarvis",
+    "wake_word_mode": "offline",
+    "wake_word_model": "wn9_jarvis_tts",
     "startup_greeting": "Hi there",
+    "startup_greeting_mode": "local_audio",
     "language": "en_US"
   },
   "led_behavior": {
