@@ -5,6 +5,7 @@ on:
     branches:
       - jarvis-english-clean-start
       - jarvis-rgb-status-led
+      - jarvis-hindi-build105
   workflow_dispatch:
 
 permissions:
@@ -35,7 +36,7 @@ jobs:
             apt-get update &&
             apt-get install -y espeak-ng ffmpeg &&
             python3 ../scripts/generate-greeting-header.py &&
-            python3 scripts/build.py jarvis-s3-zero --language en-US --wake-word wn9_jarvis_tts
+            python3 scripts/build.py jarvis-s3-zero --language hi-IN --wake-word wn9_jarvis_tts
 
       - name: Verify 4MB flash, Quad 80MHz PSRAM and offline wake-word configuration
         if: success()
