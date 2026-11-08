@@ -37,15 +37,20 @@ jobs:
             python3 ../scripts/generate-greeting-header.py &&
             python3 scripts/build.py jarvis-s3-zero --language en-US --wake-word wn9_jarvis_tts
 
-      - name: Verify 4MB flash, Quad PSRAM and offline wake-word configuration
+      - name: Verify 4MB flash, Quad 80MHz PSRAM and offline wake-word configuration
         if: success()
         run: |
           grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y$' xiaozhi-esp32/sdkconfig
           grep -q '^CONFIG_SPIRAM=y$' xiaozhi-esp32/sdkconfig
-          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y
+          grep -q '^CONFIG_SPIRAM_MODE_QUAD=y$' xiaozhi-esp32/sdkconfig
+          grep -q '^CONFIG_SPIRAM_SPEED_80M=y$' xiaozhi-esp32/sdkconfig
+          ! grep -q '^CONFIG_SPIRAM_MODE_OCT=y$' xiaozhi-esp32/sdkconfig
           grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/4m.csv"$' xiaozhi-esp32/sdkconfig
           grep -q '^CONFIG_USE_AFE_WAKE_WORD=y$' xiaozhi-esp32/sdkconfig
           grep -q '^CONFIG_SR_WN_WN9_JARVIS_TTS=y$' xiaozhi-esp32/sdkconfig
+          grep -q '^#define AUDIO_I2S_SPK_GPIO_BCLK GPIO_NUM_8$' xiaozhi-esp32/main/boards/jarvis-s3-zero/config.h
+          grep -q '^#define AUDIO_I2S_SPK_GPIO_LRCK GPIO_NUM_7$' xiaozhi-esp32/main/boards/jarvis-s3-zero/config.h
+          grep -q '^#define AUDIO_I2S_SPK_GPIO_DOUT GPIO_NUM_9$' xiaozhi-esp32/main/boards/jarvis-s3-zero/config.h
           MERGED_SIZE=$(stat -c%s xiaozhi-esp32/build/merged-binary.bin)
           echo "Merged firmware size: ${MERGED_SIZE} bytes"
           test "${MERGED_SIZE}" -le 4194304
@@ -71,96 +76,4 @@ jobs:
       - name: Show failure logs
         if: failure()
         run: |
-          find xiaozhi-esp32/build/log -type f -maxdepth 1 -print -exec tail -150 {} + 2>/dev/null || true
- xiaozhi-esp32/sdkconfig
-          grep -q '^CONFIG_SPIRAM_SPEED_80M=y
-          grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/4m.csv"$' xiaozhi-esp32/sdkconfig
-          grep -q '^CONFIG_USE_AFE_WAKE_WORD=y$' xiaozhi-esp32/sdkconfig
-          grep -q '^CONFIG_SR_WN_WN9_JARVIS_TTS=y$' xiaozhi-esp32/sdkconfig
-          MERGED_SIZE=$(stat -c%s xiaozhi-esp32/build/merged-binary.bin)
-          echo "Merged firmware size: ${MERGED_SIZE} bytes"
-          test "${MERGED_SIZE}" -le 4194304
-
-      - name: Collect firmware files
-        if: success()
-        run: |
-          mkdir -p output
-          find xiaozhi-esp32/build -maxdepth 2 -type f -name '*.bin' -exec cp -t output/ {} +
-          cp xiaozhi-esp32/sdkconfig output/sdkconfig.txt
-          cp xiaozhi-esp32/main/boards/jarvis-s3-zero/config.h output/
-          cp xiaozhi-esp32/build/merged-binary.bin output/
-          ls -lh output/
-
-      - name: Upload JARVIS firmware
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jarvis-waveshare-esp32-s3-zero
-          path: output/
-          retention-days: 90
-
-      - name: Show failure logs
-        if: failure()
-        run: |
-          find xiaozhi-esp32/build/log -type f -maxdepth 1 -print -exec tail -150 {} + 2>/dev/null || true
- xiaozhi-esp32/sdkconfig
-          ! grep -q '^CONFIG_SPIRAM_MODE_OCT=y
-          grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/4m.csv"$' xiaozhi-esp32/sdkconfig
-          grep -q '^CONFIG_USE_AFE_WAKE_WORD=y$' xiaozhi-esp32/sdkconfig
-          grep -q '^CONFIG_SR_WN_WN9_JARVIS_TTS=y$' xiaozhi-esp32/sdkconfig
-          MERGED_SIZE=$(stat -c%s xiaozhi-esp32/build/merged-binary.bin)
-          echo "Merged firmware size: ${MERGED_SIZE} bytes"
-          test "${MERGED_SIZE}" -le 4194304
-
-      - name: Collect firmware files
-        if: success()
-        run: |
-          mkdir -p output
-          find xiaozhi-esp32/build -maxdepth 2 -type f -name '*.bin' -exec cp -t output/ {} +
-          cp xiaozhi-esp32/sdkconfig output/sdkconfig.txt
-          cp xiaozhi-esp32/main/boards/jarvis-s3-zero/config.h output/
-          cp xiaozhi-esp32/build/merged-binary.bin output/
-          ls -lh output/
-
-      - name: Upload JARVIS firmware
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jarvis-waveshare-esp32-s3-zero
-          path: output/
-          retention-days: 90
-
-      - name: Show failure logs
-        if: failure()
-        run: |
-          find xiaozhi-esp32/build/log -type f -maxdepth 1 -print -exec tail -150 {} + 2>/dev/null || true
- xiaozhi-esp32/sdkconfig
-          grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/4m.csv"$' xiaozhi-esp32/sdkconfig
-          grep -q '^CONFIG_USE_AFE_WAKE_WORD=y$' xiaozhi-esp32/sdkconfig
-          grep -q '^CONFIG_SR_WN_WN9_JARVIS_TTS=y$' xiaozhi-esp32/sdkconfig
-          MERGED_SIZE=$(stat -c%s xiaozhi-esp32/build/merged-binary.bin)
-          echo "Merged firmware size: ${MERGED_SIZE} bytes"
-          test "${MERGED_SIZE}" -le 4194304
-
-      - name: Collect firmware files
-        if: success()
-        run: |
-          mkdir -p output
-          find xiaozhi-esp32/build -maxdepth 2 -type f -name '*.bin' -exec cp -t output/ {} +
-          cp xiaozhi-esp32/sdkconfig output/sdkconfig.txt
-          cp xiaozhi-esp32/main/boards/jarvis-s3-zero/config.h output/
-          cp xiaozhi-esp32/build/merged-binary.bin output/
-          ls -lh output/
-
-      - name: Upload JARVIS firmware
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jarvis-waveshare-esp32-s3-zero
-          path: output/
-          retention-days: 90
-
-      - name: Show failure logs
-        if: failure()
-        run: |
-          find xiaozhi-esp32/build/log -type f -maxdepth 1 -print -exec tail -150 {} + 2>/dev/null || true
+          find xiaozhi-esp32/build/log -maxdepth 1 -type f -print -exec tail -150 {} + 2>/dev/null || true
