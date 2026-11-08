@@ -82,7 +82,7 @@ function main(cfg) {
   // Language
   if (cfg.language) {
     const langMap = {
-      zh_CN: 'LANGUAGE_ZH_CN', zh_TW: 'LANGUAGE_ZH_TW', en_US: 'LANGUAGE_EN_US',
+      zh_CN: 'LANGUAGE_ZH_CN', zh_TW: 'LANGUAGE_ZH_TW', en_US: 'LANGUAGE_EN_US', hi_IN: 'LANGUAGE_HI_IN',
       ja_JP: 'LANGUAGE_JA_JP', ko_KR: 'LANGUAGE_KO_KR', vi_VN: 'LANGUAGE_VI_VN',
       th_TH: 'LANGUAGE_TH_TH', de_DE: 'LANGUAGE_DE_DE', fr_FR: 'LANGUAGE_FR_FR',
       es_ES: 'LANGUAGE_ES_ES', it_IT: 'LANGUAGE_IT_IT', ru_RU: 'LANGUAGE_RU_RU',
