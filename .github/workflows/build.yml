@@ -5,6 +5,7 @@ on:
     branches:
       - jarvis-english-clean-start
       - jarvis-rgb-status-led
+      - jarvis-gemini-build105
   workflow_dispatch:
 
 permissions:
