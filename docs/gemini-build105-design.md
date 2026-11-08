@@ -43,7 +43,13 @@ Status: experimental branch only. Build #105 remains the protected rollback imag
 
 ## Gemini Live transport
 
-- Selected model: `gemini-3.8-live` (Gemini Developer API Live). Google's current pricing page lists it with free-tier input/output pricing; free-tier access remains subject to project-specific quotas and availability. Do not enable billing or paid fallback. Google's Live API voice documentation explicitly lists `Algenib` (Gravelly). The same documentation lists Hindi (`hi-IN`) and English India (`en-IN`); Hinglish code-switching will be prompt-guided and must be verified on-device. Confirm exact model access for the user's API key during first network test.
+- Selected model: `models/gemini-3.8-live` on the Gemini Developer API Live WebSocket endpoint `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent`.
+- Google's current pricing page lists `gemini-3.8-live` with free-tier input/output pricing. Free-tier use is still subject to project-specific quota and model availability. Never enable billing or paid fallback.
+- Google's Live API voice documentation explicitly lists `Algenib` (Gravelly). It also lists Hindi (`hi-IN`) and English India (`en-IN`); Hinglish code-switching will be prompt-guided and must be verified on-device.
+- Prefer a short-lived Live API ephemeral token: POST to `https://generativelanguage.googleapis.com/v1beta/auth_tokens` with the long-lived key in the `x-goog-api-key` header and constrain the token to `models/gemini-3.8-live` plus the approved AUDIO configuration. Connect the WebSocket using the ephemeral token as the Live API key. Keep the long-lived key only in NVS; never put it in the WebSocket URL, logs, or firmware.
+- Setup message must use the current Gemini Developer API schema (`setup.model`, `generationConfig.responseModalities`, `generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName = Algenib`, `systemInstruction`). Do not copy the Agent Platform OAuth endpoint or Vertex model resource path.
+- Live API input: signed 16-bit little-endian PCM, 16 kHz mono. Live API output: signed 16-bit little-endian PCM, 24 kHz mono.
+- WebSocket client messages and server messages must follow the current v1beta Developer API schema; test `setupComplete`, audio turn boundaries, and `turnComplete` before integrating with the application state machine.
 - Live API input: signed 16-bit little-endian PCM, 16 kHz mono.
 - Live API output: signed 16-bit little-endian PCM, 24 kHz mono.
 - WebSocket setup and server messages must follow the current Gemini Live API schema; do not assume older 2.5/3.1 message fields are unchanged.
