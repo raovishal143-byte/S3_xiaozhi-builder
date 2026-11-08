@@ -1,25 +1,31 @@
 #!/usr/bin/env python3
-"""Generate a small local English Ogg/Opus greeting and C++ byte header."""
+"""Embed the approved Algenib startup greeting as local Ogg/Opus bytes."""
 from pathlib import Path
-import subprocess
+import shutil
 
 root = Path(__file__).resolve().parents[1]
+asset = root / "assets" / "jarvis-algenib-greeting.ogg"
 build = root / "xiaozhi-esp32" / "build"
-build.mkdir(parents=True, exist_ok=True)
-wav = build / "jarvis-greeting.wav"
-ogg = build / "jarvis-greeting.ogg"
 header = root / "xiaozhi-esp32" / "main" / "jarvis_greeting.h"
 
-subprocess.run(["espeak-ng", "-v", "en-us", "-s", "145", "-w", str(wav), "Hi there."], check=True)
-subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(wav),
-                "-ac", "1", "-ar", "24000", "-c:a", "libopus", "-b:a", "32k", str(ogg)], check=True)
+if not asset.is_file():
+    raise SystemExit(f"Required Algenib greeting asset is missing: {asset}")
+
+build.mkdir(parents=True, exist_ok=True)
+ogg = build / "jarvis-greeting.ogg"
+shutil.copy2(asset, ogg)
+
 data = ogg.read_bytes()
+if not data.startswith(b"OggS"):
+    raise SystemExit("Algenib greeting asset is not an Ogg container")
+
 lines = []
 for i in range(0, len(data), 12):
-    lines.append("    " + ", ".join(f"0x{b:02x}" for b in data[i:i+12]) + ",")
+    lines.append("    " + ", ".join(f"0x{b:02x}" for b in data[i:i + 12]) + ",")
 header.write_text(
     "#pragma once\n#include <cstddef>\n"
     "static const unsigned char kJarvisGreetingOgg[] = {\n" +
     "\n".join(lines) + "\n};\n",
-    encoding="utf-8")
-print(f"Generated local greeting: {len(data)} bytes")
+    encoding="utf-8",
+)
+print(f"Embedded Algenib startup greeting: {len(data)} bytes")
