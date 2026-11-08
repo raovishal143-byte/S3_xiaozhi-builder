@@ -9,15 +9,17 @@
         "CONFIG_SPIRAM_MODE_QUAD=y",
         "CONFIG_SPIRAM_SPEED_80M=y",
         "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y",
-        "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions/v2/4m.csv\""
+        "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\\"partitions/v2/4m.csv\\""
       ]
     }
   ],
   "led_behavior": {
-    "startup": {"onboard": "red", "blinks": 5},
-    "standby": {"onboard": "off", "external": "solid_on"},
+    "startup": {"onboard": "red_blink_until_internet"},
+    "greeting": {"onboard": "yellow_solid"},
+    "standby": {"onboard": "yellow_breathing"},
     "listening": {"onboard": "blue_blink"},
     "processing": {"onboard": "blue_blink"},
-    "speaking": {"onboard": "green_blink", "external": "green_blink", "synchronized": true}
+    "speaking": {"onboard": "green_blink"},
+    "external_gpio_2": "disabled"
   }
 }
