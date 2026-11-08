@@ -43,7 +43,7 @@ Status: experimental branch only. Build #105 remains the protected rollback imag
 
 ## Gemini Live transport
 
-- Current model candidate: `gemini-3.8-live`; confirm the model, WebSocket schema, Algenib voice support, and quota for the user's exact AI Studio project before freezing the implementation.
+- Selected model: `gemini-3.8-live` (Gemini Developer API Live). Google's current pricing page lists it with free-tier input/output pricing; free-tier access remains subject to project-specific quotas and availability. Do not enable billing or paid fallback. Google's Live API voice documentation explicitly lists `Algenib` (Gravelly). The same documentation lists Hindi (`hi-IN`) and English India (`en-IN`); Hinglish code-switching will be prompt-guided and must be verified on-device. Confirm exact model access for the user's API key during first network test.
 - Live API input: signed 16-bit little-endian PCM, 16 kHz mono.
 - Live API output: signed 16-bit little-endian PCM, 24 kHz mono.
 - WebSocket setup and server messages must follow the current Gemini Live API schema; do not assume older 2.5/3.1 message fields are unchanged.
