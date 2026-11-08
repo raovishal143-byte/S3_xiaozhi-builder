@@ -7,13 +7,10 @@
     "mic_sck": 4,
     "mic_ws": 5,
     "mic_din": 6,
-    "spk_bclk": 7,
-    "spk_lrck": 8,
+    "spk_bclk": 8,
+    "spk_lrck": 7,
     "spk_dout": 9,
     "led": 21
-  },
-  "extra_pins": {
-    "external_status_led": 2
   },
   "assistant": {
     "platform": "xiaozhi",
@@ -25,10 +22,12 @@
     "language": "en_US"
   },
   "led_behavior": {
-    "startup": { "onboard": "green", "blinks": 5, "external": "off" },
-    "standby": { "onboard": "off", "external": "on" },
-    "listening": { "onboard": "blue_blink", "external": "off" },
-    "processing": { "onboard": "yellow_blink", "external": "off" },
-    "speaking": { "onboard": "green_blink", "external": "green_blink", "synchronized": true }
+    "startup": { "onboard": "red_blink_until_internet" },
+    "greeting": { "onboard": "yellow_solid" },
+    "standby": { "onboard": "yellow_breathing" },
+    "listening": { "onboard": "blue_blink" },
+    "processing": { "onboard": "blue_blink" },
+    "speaking": { "onboard": "green_blink" },
+    "external_gpio_2": "disabled"
   }
 }
