@@ -184,7 +184,7 @@ elseif(CONFIG_BOARD_TYPE_BREAD_COMPACT_WIFI)
     }""",
     )
 
-    print("JARVIS board profile, VAD LED states and one-time startup greeting installed.")
+    # Install the passive PCM tap used by the separate Gemini provider.\n    from runpy import run_path\n    run_path(str(ROOT / "scripts" / "patch-gemini-audio-hook.py"), run_name="__main__")\n\n    print("JARVIS board profile, VAD LED states and one-time startup greeting installed.")
 
 
 if __name__ == "__main__":
