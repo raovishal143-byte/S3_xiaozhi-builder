@@ -1,7 +1,7 @@
 {
   "board": "jarvis-s3-zero",
   "chip": "esp32s3",
-  "language": "en_US",
+  "language": "hi_IN",
   "onboard_led": true,
   "pins": {
     "mic_sck": 4,
@@ -19,7 +19,7 @@
     "wake_word_model": "wn9_jarvis_tts",
     "startup_greeting": "Hi there",
     "startup_greeting_mode": "local_audio",
-    "language": "en_US"
+    "language": "hi_IN"
   },
   "led_behavior": {
     "startup": { "onboard": "red_blink_until_internet" },
