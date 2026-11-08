@@ -65,7 +65,8 @@ elseif(CONFIG_BOARD_TYPE_BREAD_COMPACT_WIFI)
         XIAOZHI / "main" / "led" / "led.h",
         "    virtual void OnStateChanged() = 0;\n",
         "    virtual void OnStateChanged() = 0;\n"
-        "    virtual void OnVoiceActivityChanged(bool active) { (void)active; }\n",
+        "    virtual void OnVoiceActivityChanged(bool active) { (void)active; }\n"
+        "    virtual void OnStartupGreetingChanged(bool active) { (void)active; }\n",
     )
 
     app = XIAOZHI / "main" / "application.cc"
@@ -125,7 +126,8 @@ elseif(CONFIG_BOARD_TYPE_BREAD_COMPACT_WIFI)
                 notify_player_.OnPlaybackDrained();
                 if (pending_startup_greeting_) {
                     pending_startup_greeting_ = false;
-                    // Only enter standby after the local greeting has fully drained.
+                    // Release the solid-yellow greeting indicator only after audio drains.
+                    Board::GetInstance().GetLed()->OnStartupGreetingChanged(false);
                     SetDeviceState(kDeviceStateIdle);
                 }
             }""",
@@ -171,6 +173,7 @@ elseif(CONFIG_BOARD_TYPE_BREAD_COMPACT_WIFI)
     }""",
         """    if (!has_error && first_startup_completion) {
         pending_startup_greeting_ = true;
+        Board::GetInstance().GetLed()->OnStartupGreetingChanged(true);
         // Prevent the offline wake detector from hearing the device's own greeting.
         audio_service_.EnableWakeWordDetection(false);
         Schedule([this]() {
