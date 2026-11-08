@@ -5,18 +5,9 @@
 
 #define TAG "JarvisLed"
 static constexpr uint32_t kBlinkPeriodMs = 300;
+static constexpr uint32_t kBreathPeriodMs = 35;
 
-JarvisLed::JarvisLed(gpio_num_t rgb_gpio, gpio_num_t external_gpio)
-    : external_gpio_(external_gpio) {
-    gpio_config_t gpio_cfg = {};
-    gpio_cfg.pin_bit_mask = 1ULL << external_gpio_;
-    gpio_cfg.mode = GPIO_MODE_OUTPUT;
-    gpio_cfg.pull_up_en = GPIO_PULLUP_DISABLE;
-    gpio_cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    gpio_cfg.intr_type = GPIO_INTR_DISABLE;
-    ESP_ERROR_CHECK(gpio_config(&gpio_cfg));
-    ESP_ERROR_CHECK(gpio_set_level(external_gpio_, 0));
-
+JarvisLed::JarvisLed(gpio_num_t rgb_gpio) {
     led_strip_config_t strip_cfg = {};
     strip_cfg.strip_gpio_num = rgb_gpio;
     strip_cfg.max_leds = 1;
@@ -37,8 +28,8 @@ JarvisLed::JarvisLed(gpio_num_t rgb_gpio, gpio_num_t external_gpio)
     timer_args.skip_unhandled_events = true;
     ESP_ERROR_CHECK(esp_timer_create(&timer_args, &timer_));
 
-    // Start the red boot pattern immediately when the board creates this LED.
-    // The board constructor forces LED creation before Application enters Starting.
+    // Red blinking begins as soon as the board initializes and continues
+    // until Application reports successful activation/internet initialization.
     SetMode(Mode::Startup);
 }
 
@@ -52,68 +43,74 @@ JarvisLed::~JarvisLed() {
     }
 }
 
-void JarvisLed::Render(bool on) {
-    phase_on_ = on;
+void JarvisLed::Render(uint8_t brightness) {
     if (!strip_) return;
 
     uint8_t r = 0, g = 0, b = 0;
-    if (on) {
-        switch (mode_) {
-            case Mode::Startup:     r = 24; g = 0;  b = 0;  break; // red
-            case Mode::Speaking:    r = 0;  g = 24; b = 0;  break; // green
-            case Mode::Listening:   r = 0;  g = 0;  b = 24; break; // blue
-            case Mode::Processing:  r = 0;  g = 0;  b = 24; break; // blue
-            default: break;
-        }
+    switch (mode_) {
+        case Mode::Startup:     r = brightness; g = 0;          b = 0;          break;
+        case Mode::Greeting:    r = brightness; g = brightness; b = 0;          break;
+        case Mode::Standby:     r = brightness; g = brightness; b = 0;          break;
+        case Mode::Listening:
+        case Mode::Processing:  r = 0;          g = 0;          b = brightness; break;
+        case Mode::Speaking:    r = 0;          g = brightness; b = 0;          break;
+        case Mode::Off:         break;
     }
     ESP_ERROR_CHECK(led_strip_set_pixel(strip_, 0, r, g, b));
     ESP_ERROR_CHECK(led_strip_refresh(strip_));
-
-    const bool external_on = on && mode_ == Mode::Speaking;
-    ESP_ERROR_CHECK(gpio_set_level(external_gpio_, external_on ? 1 : 0));
 }
 
 void JarvisLed::SetMode(Mode mode) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (timer_) esp_timer_stop(timer_);
     mode_ = mode;
-    startup_edges_remaining_ = 0;
+    phase_on_ = true;
 
     if (mode_ == Mode::Startup) {
-        // Start lit immediately; ten edges produce exactly five complete flashes.
-        startup_edges_remaining_ = 10;
-        Render(true);
+        Render(28);
         ESP_ERROR_CHECK(esp_timer_start_periodic(timer_, kBlinkPeriodMs * 1000ULL));
         return;
     }
-
+    if (mode_ == Mode::Greeting) {
+        Render(28); // solid yellow throughout the local "Hi there" greeting
+        return;
+    }
     if (mode_ == Mode::Standby) {
-        Render(false);
-        ESP_ERROR_CHECK(gpio_set_level(external_gpio_, 1));
+        standby_brightness_ = 8;
+        standby_direction_ = 1;
+        Render(static_cast<uint8_t>(standby_brightness_));
+        ESP_ERROR_CHECK(esp_timer_start_periodic(timer_, kBreathPeriodMs * 1000ULL));
         return;
     }
-
     if (mode_ == Mode::Listening || mode_ == Mode::Processing || mode_ == Mode::Speaking) {
-        Render(true);
+        Render(30);
         ESP_ERROR_CHECK(esp_timer_start_periodic(timer_, kBlinkPeriodMs * 1000ULL));
         return;
     }
-
-    Render(false);
+    Render(0);
 }
 
 void JarvisLed::OnTimer() {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (mode_ == Mode::Startup) {
-        --startup_edges_remaining_;
-        if (startup_edges_remaining_ <= 0) {
-            ESP_ERROR_CHECK(esp_timer_stop(timer_));
-            mode_ = Mode::Off;
-            Render(false);
-            return;
+    if (mode_ == Mode::Standby) {
+        standby_brightness_ += standby_direction_ * 2;
+        if (standby_brightness_ >= 54) {
+            standby_brightness_ = 54;
+            standby_direction_ = -1;
+        } else if (standby_brightness_ <= 8) {
+            standby_brightness_ = 8;
+            standby_direction_ = 1;
         }
+        Render(static_cast<uint8_t>(standby_brightness_));
+        return;
     }
-    Render(!phase_on_);
+
+    phase_on_ = !phase_on_;
+    if (mode_ == Mode::Startup) {
+        Render(phase_on_ ? 28 : 0);
+    } else if (mode_ == Mode::Listening || mode_ == Mode::Processing || mode_ == Mode::Speaking) {
+        Render(phase_on_ ? 30 : 0);
+    }
 }
 
 void JarvisLed::TimerCallback(void* arg) {
@@ -123,19 +120,17 @@ void JarvisLed::TimerCallback(void* arg) {
 void JarvisLed::OnStateChanged() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        // Do not let a fast Wi-Fi/activation transition truncate the five red boot flashes.
-        if (mode_ == Mode::Startup && startup_edges_remaining_ > 0) return;
+        // The startup greeting has priority until its audio has fully drained.
+        if (mode_ == Mode::Greeting) return;
     }
     switch (Application::GetInstance().GetDeviceState()) {
         case kDeviceStateStarting:
+        case kDeviceStateConnecting:
             SetMode(Mode::Startup);
             break;
         case kDeviceStateIdle:
             voice_seen_ = false;
             SetMode(Mode::Standby);
-            break;
-        case kDeviceStateConnecting:
-            SetMode(Mode::Processing);
             break;
         case kDeviceStateListening:
         case kDeviceStateAudioTesting:
@@ -158,7 +153,15 @@ void JarvisLed::OnVoiceActivityChanged(bool active) {
         voice_seen_ = true;
         SetMode(Mode::Listening);
     } else if (voice_seen_) {
-        // While Jarvis processes the captured speech, retain the requested blue blink.
+        // Keep blue blinking while the recognized request is being processed.
         SetMode(Mode::Processing);
+    }
+}
+
+void JarvisLed::OnStartupGreetingChanged(bool active) {
+    if (active) {
+        SetMode(Mode::Greeting);
+    } else {
+        SetMode(Mode::Standby);
     }
 }
