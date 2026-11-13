@@ -88,7 +88,11 @@ void JarvisLed::SetMode(Mode mode) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     if (mode == Mode::Startup && startup_done_) return;
-    if (timer_) ESP_ERROR_CHECK(esp_timer_stop(timer_));
+    // A newly created esp_timer is inactive; stopping it returns ESP_ERR_INVALID_STATE.
+    // Only stop it when it is actually running, otherwise startup aborts before LEDs initialise.
+    if (timer_ && esp_timer_is_active(timer_)) {
+        ESP_ERROR_CHECK(esp_timer_stop(timer_));
+    }
 
     mode_ = mode;
     startup_edges_remaining_ = 0;
