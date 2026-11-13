@@ -42,8 +42,8 @@ def main():
     )
     replace_once(
         XIAOZHI / "main" / "audio" / "audio_codec.cc",
-        '    Settings settings("audio", false);\\n    output_volume_ = settings.GetInt("output_volume", output_volume_);',
-        '    output_volume_ = 100;\\n    ESP_LOGI(TAG, "JARVIS speaker output volume fixed at %d", output_volume_);',
+        '    Settings settings("audio", false);\n    output_volume_ = settings.GetInt("output_volume", output_volume_);',
+        '    output_volume_ = 100;\n    ESP_LOGI(TAG, "JARVIS speaker output volume fixed at %d", output_volume_);',
     )
 
     BOARD_DST.mkdir(parents=True, exist_ok=True)
