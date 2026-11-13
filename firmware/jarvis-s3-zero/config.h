@@ -4,7 +4,7 @@
 
 // Waveshare ESP32-S3-Zero: 4 MB Flash, 2 MB Quad-SPI PSRAM.
 #define AUDIO_INPUT_SAMPLE_RATE  16000
-// Restore the 48 kHz speaker-rate baseline used by Builds #102 and #105.
+// Build #124: restore the 48 kHz speaker-rate baseline used by Builds #102 and #105.
 // MAX98357A supports 48 kHz; XiaoZhi resamples 24 kHz Opus PCM to this rate.
 #define AUDIO_OUTPUT_SAMPLE_RATE 48000
 
