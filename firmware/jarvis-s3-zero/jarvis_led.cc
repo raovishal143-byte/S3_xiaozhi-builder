@@ -9,6 +9,16 @@ static constexpr uint32_t kBlinkPeriodMs = 300;
 static constexpr uint64_t kBreathPeriodUs = 30000;
 static constexpr float kPi = 3.14159265358979323846f;
 
+// Timer state can change between an activity check and the stop call. Treat an
+// already-stopped timer as normal, never as a fatal firmware error.
+static void StopTimerSafely(esp_timer_handle_t timer) {
+    if (!timer) return;
+    const esp_err_t err = esp_timer_stop(timer);
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "Failed to stop LED timer: %s", esp_err_to_name(err));
+    }
+}
+
 JarvisLed::JarvisLed(gpio_num_t rgb_gpio) {
     led_strip_config_t strip_cfg = {};
     strip_cfg.strip_gpio_num = rgb_gpio;
@@ -36,9 +46,7 @@ JarvisLed::JarvisLed(gpio_num_t rgb_gpio) {
 
 JarvisLed::~JarvisLed() {
     if (timer_) {
-        if (esp_timer_is_active(timer_)) {
-            esp_timer_stop(timer_);
-        }
+        StopTimerSafely(timer_);
         esp_timer_delete(timer_);
     }
     if (strip_) {
@@ -90,11 +98,8 @@ void JarvisLed::SetMode(Mode mode) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     if (mode == Mode::Startup && startup_done_) return;
-    // A newly created esp_timer is inactive; stopping it returns ESP_ERR_INVALID_STATE.
-    // Only stop it when it is actually running, otherwise startup aborts before LEDs initialise.
-    if (timer_ && esp_timer_is_active(timer_)) {
-        ESP_ERROR_CHECK(esp_timer_stop(timer_));
-    }
+    // INVALID_STATE simply means the timer was already stopped.
+    StopTimerSafely(timer_);
 
     mode_ = mode;
     startup_edges_remaining_ = 0;
@@ -132,7 +137,7 @@ void JarvisLed::OnTimer() {
         if (mode_ == Mode::Startup) {
             --startup_edges_remaining_;
             if (startup_edges_remaining_ <= 0) {
-                ESP_ERROR_CHECK(esp_timer_stop(timer_));
+                StopTimerSafely(timer_);
                 startup_done_ = true;
                 mode_ = Mode::Off;
                 Render(false);
