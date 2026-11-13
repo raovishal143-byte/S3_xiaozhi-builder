@@ -184,7 +184,34 @@ elseif(CONFIG_BOARD_TYPE_BREAD_COMPACT_WIFI)
     }""",
     )
 
-    # Install the passive PCM tap used by the separate Gemini provider.\n    from runpy import run_path\n    run_path(str(ROOT / "scripts" / "patch-gemini-audio-hook.py"), run_name="__main__")\n\n    print("JARVIS board profile, VAD LED states and one-time startup greeting installed.")
+    # Install the passive PCM tap used by the separate Gemini provider.\n    from runpy import run_path\n    run_path(str(ROOT / "scripts" / "patch-gemini-audio-hook.py"), run_name="__main__")\n\n    # Force the saved playback volume to 100% for the MAX98357A output.
+    # SetOutputVolume also persists 100 so a previous lower setting cannot return.
+    audio_codec = XIAOZHI / "main" / "audio" / "audio_codec.cc"
+    replace_once(
+        audio_codec,
+        """void AudioCodec::Start() {
+    Settings settings("audio", false);
+    output_volume_ = settings.GetInt("output_volume", output_volume_);
+    if (output_volume_ <= 0) {
+        ESP_LOGW(TAG, "Output volume value (%d) is too small, setting to default (10)", output_volume_);
+        output_volume_ = 10;
+    }
+
+    ESP_LOGI(TAG, "Audio codec started");
+}""",
+        """void AudioCodec::Start() {
+    int saved_output_volume;
+    {
+        Settings settings("audio", false);
+        saved_output_volume = settings.GetInt("output_volume", output_volume_);
+    }
+    ESP_LOGI(TAG, "Saved output volume was %d; forcing playback volume to 100", saved_output_volume);
+    SetOutputVolume(100);
+    ESP_LOGI(TAG, "Audio codec started");
+}""",
+    )
+
+    print("JARVIS board profile, VAD LED states and one-time startup greeting installed.")
 
 
 if __name__ == "__main__":
