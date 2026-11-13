@@ -36,7 +36,9 @@ JarvisLed::JarvisLed(gpio_num_t rgb_gpio) {
 
 JarvisLed::~JarvisLed() {
     if (timer_) {
-        esp_timer_stop(timer_);
+        if (esp_timer_is_active(timer_)) {
+            esp_timer_stop(timer_);
+        }
         esp_timer_delete(timer_);
     }
     if (strip_) {
