@@ -6,6 +6,7 @@ on:
       - jarvis-english-clean-start
       - jarvis-rgb-status-led
       - jarvis-gemini-build105
+      - jarvis-audio-volume100-build106
   workflow_dispatch:
 
 permissions:
