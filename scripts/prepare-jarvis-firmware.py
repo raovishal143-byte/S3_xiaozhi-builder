@@ -51,6 +51,83 @@ def main():
         '    output_volume_ = 100;\n    ESP_LOGI(TAG, "JARVIS speaker output volume fixed at %d", output_volume_);',
     )
 
+    # Instrument the real speaker write path. This distinguishes an empty/zero
+    # decoded stream from an I2S transport failure without changing pin wiring.
+    replace_once(
+        XIAOZHI / "main" / "audio" / "codecs" / "no_audio_codec.cc",
+        """    ESP_ERROR_CHECK(i2s_channel_init_std_mode(tx_handle_, &std_cfg));
+
+    // Create a new channel for MIC""",
+        """    ESP_ERROR_CHECK(i2s_channel_init_std_mode(tx_handle_, &std_cfg));
+    ESP_LOGI(TAG, "JARVIS I2S speaker configured: rate=%d, BCLK=%d, WS=%d, DOUT=%d, 32-bit mono LEFT slot",
+             output_sample_rate_, (int)spk_bclk, (int)spk_ws, (int)spk_dout);
+
+    // Create a new channel for MIC""",
+    )
+    replace_once(
+        XIAOZHI / "main" / "audio" / "codecs" / "no_audio_codec.cc",
+        """int NoAudioCodec::Write(const int16_t* data, int samples) {
+    std::lock_guard<std::mutex> lock(data_if_mutex_);
+    std::vector<int32_t> buffer(samples);
+
+    // output_volume_: 0-100
+    // volume_factor_: 0-65536
+    int32_t volume_factor = (int32_t(output_volume_) * 65536) / 100;
+    for (int i = 0; i < samples; i++) {
+        int64_t temp = int64_t(data[i]) * volume_factor; // 使用 int64_t 进行乘法运算
+        if (temp > INT32_MAX) {
+            buffer[i] = INT32_MAX;
+        } else if (temp < INT32_MIN) {
+            buffer[i] = INT32_MIN;
+        } else {
+            buffer[i] = static_cast<int32_t>(temp);
+        }
+    }
+
+    size_t bytes_written;
+    ESP_ERROR_CHECK(i2s_channel_write(tx_handle_, buffer.data(), samples * sizeof(int32_t), &bytes_written, portMAX_DELAY));
+    return bytes_written / sizeof(int32_t);
+}""",
+        """int NoAudioCodec::Write(const int16_t* data, int samples) {
+    std::lock_guard<std::mutex> lock(data_if_mutex_);
+    std::vector<int32_t> buffer(samples);
+
+    // output_volume_: 0-100
+    // volume_factor_: 0-65536
+    const int32_t volume_factor = (int32_t(output_volume_) * 65536) / 100;
+    int32_t peak = 0;
+    for (int i = 0; i < samples; i++) {
+        int32_t sample = data[i];
+        const int32_t magnitude = sample < 0 ? -sample : sample;
+        if (magnitude > peak) peak = magnitude;
+        const int64_t temp = int64_t(sample) * volume_factor;
+        if (temp > INT32_MAX) {
+            buffer[i] = INT32_MAX;
+        } else if (temp < INT32_MIN) {
+            buffer[i] = INT32_MIN;
+        } else {
+            buffer[i] = static_cast<int32_t>(temp);
+        }
+    }
+
+    size_t bytes_written = 0;
+    const esp_err_t err = i2s_channel_write(
+        tx_handle_, buffer.data(), samples * sizeof(int32_t), &bytes_written, portMAX_DELAY);
+    static uint32_t diagnostic_blocks = 0;
+    const uint32_t block = ++diagnostic_blocks;
+    if (block <= 12) {
+        ESP_LOGI(TAG, "JARVIS I2S TX block=%u samples=%d peak_pcm=%ld volume=%d bytes=%u err=%s",
+                 (unsigned)block, samples, (long)peak, output_volume_,
+                 (unsigned)bytes_written, esp_err_to_name(err));
+    }
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "JARVIS I2S TX write failed: %s", esp_err_to_name(err));
+        return 0;
+    }
+    return bytes_written / sizeof(int32_t);
+}""",
+    )
+
     BOARD_DST.mkdir(parents=True, exist_ok=True)
     for name in ("config.h", "config.json", "jarvis_led.h", "jarvis_led.cc", "jarvis_s3_zero_board.cc"):
         shutil.copy2(BOARD_SRC / name, BOARD_DST / name)
