@@ -43,11 +43,11 @@ jobs:
           }
           actual = {}
           for name, value in expected.items():
-              match = re.search(r"^\\s*#define\\s+" + re.escape(name) + r"\\s+([^\\s/]+)", cfg, re.M)
+              match = re.search(r"^\s*#define\s+" + re.escape(name) + r"\s+([^\s/]+)", cfg, re.M)
               actual[name] = match.group(1) if match else "<missing>"
               if actual[name] != value:
                   raise SystemExit(f"{name}: expected {value}, found {actual[name]}")
-          if re.search(r"GPIO_NUM_2(?:\\D|$)", cfg) or re.search(r"EXTERNAL_LED", cfg):
+          if re.search(r"GPIO_NUM_2(?:\D|$)", cfg) or re.search(r"EXTERNAL_LED", cfg):
               raise SystemExit("Unexpected GPIO2/external LED definition in board config")
           codec = Path("xiaozhi-esp32/main/audio/codecs/no_audio_codec.cc").read_text()
           audio = Path("xiaozhi-esp32/main/audio/audio_codec.cc").read_text()
