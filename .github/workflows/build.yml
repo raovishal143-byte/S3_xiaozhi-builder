@@ -26,24 +26,38 @@ jobs:
 
       - name: Verify JARVIS board and audio configuration before build
         run: |
-          set -e
-          CFG=xiaozhi-esp32/main/boards/jarvis-s3-zero/config.h
-          grep -q '^#define AUDIO_INPUT_SAMPLE_RATE  16000$' "$CFG"
-          grep -q '^#define AUDIO_OUTPUT_SAMPLE_RATE 24000$' "$CFG"
-          grep -q '^#define AUDIO_I2S_MIC_GPIO_SCK  GPIO_NUM_4$' "$CFG"
-          grep -q '^#define AUDIO_I2S_MIC_GPIO_WS   GPIO_NUM_5$' "$CFG"
-          grep -q '^#define AUDIO_I2S_MIC_GPIO_DIN  GPIO_NUM_6$' "$CFG"
-          grep -q '^#define AUDIO_I2S_SPK_GPIO_BCLK GPIO_NUM_7$' "$CFG"
-          grep -q '^#define AUDIO_I2S_SPK_GPIO_LRCK GPIO_NUM_8$' "$CFG"
-          grep -q '^#define AUDIO_I2S_SPK_GPIO_DOUT GPIO_NUM_9$' "$CFG"
-          grep -q '^#define BUILTIN_LED_GPIO GPIO_NUM_21$' "$CFG"
-          if grep -Eq 'GPIO_NUM_2([^0-9]|$)|EXTERNAL_LED' "$CFG"; then
-            echo "Unexpected GPIO2/external LED definition in board config"
-            exit 1
-          fi
-          grep -q 'volume_factor = (int32_t(output_volume_) * 65536) / 100;' xiaozhi-esp32/main/audio/codecs/no_audio_codec.cc
-          grep -q 'output_volume_ = 100;' xiaozhi-esp32/main/audio/audio_codec.cc
-          echo "Verified GPIOs, 16 kHz mic, 24 kHz speaker, onboard-only LED, and linear 100% volume."
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          cfg = Path("xiaozhi-esp32/main/boards/jarvis-s3-zero/config.h").read_text()
+          expected = {
+              "AUDIO_INPUT_SAMPLE_RATE": "16000",
+              "AUDIO_OUTPUT_SAMPLE_RATE": "24000",
+              "AUDIO_I2S_MIC_GPIO_SCK": "GPIO_NUM_4",
+              "AUDIO_I2S_MIC_GPIO_WS": "GPIO_NUM_5",
+              "AUDIO_I2S_MIC_GPIO_DIN": "GPIO_NUM_6",
+              "AUDIO_I2S_SPK_GPIO_BCLK": "GPIO_NUM_7",
+              "AUDIO_I2S_SPK_GPIO_LRCK": "GPIO_NUM_8",
+              "AUDIO_I2S_SPK_GPIO_DOUT": "GPIO_NUM_9",
+              "BUILTIN_LED_GPIO": "GPIO_NUM_21",
+          }
+          actual = {}
+          for name, value in expected.items():
+              match = re.search(r"^\\s*#define\\s+" + re.escape(name) + r"\\s+([^\\s/]+)", cfg, re.M)
+              actual[name] = match.group(1) if match else "<missing>"
+              if actual[name] != value:
+                  raise SystemExit(f"{name}: expected {value}, found {actual[name]}")
+          if re.search(r"GPIO_NUM_2(?:\\D|$)", cfg) or re.search(r"EXTERNAL_LED", cfg):
+              raise SystemExit("Unexpected GPIO2/external LED definition in board config")
+          codec = Path("xiaozhi-esp32/main/audio/codecs/no_audio_codec.cc").read_text()
+          audio = Path("xiaozhi-esp32/main/audio/audio_codec.cc").read_text()
+          if "volume_factor = (int32_t(output_volume_) * 65536) / 100;" not in codec:
+              raise SystemExit("Linear output volume patch missing")
+          if "output_volume_ = 100;" not in audio:
+              raise SystemExit("Forced 100% output volume patch missing")
+          print("Verified board config:", actual)
+          print("Verified linear 100% output volume patch.")
+          PY
 
       - name: Build ESP32-S3-Zero firmware with offline Jarvis wake model
         uses: espressif/esp-idf-ci-action@v1
