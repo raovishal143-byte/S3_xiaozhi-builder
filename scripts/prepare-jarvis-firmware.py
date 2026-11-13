@@ -32,6 +32,25 @@ def main():
         "CONFIG_SPIRAM_MODE_QUAD=y",
     )
 
+    # JARVIS has no physical volume buttons. Use full output level and a
+    # linear volume curve; the upstream squared curve attenuates 70% volume
+    # to only 49% signal amplitude. Override any old NVS volume on startup.
+    replace_once(
+        XIAOZHI / "main" / "audio" / "codecs" / "no_audio_codec.cc",
+        "int32_t volume_factor = pow(double(output_volume_) / 100.0, 2) * 65536;",
+        "int32_t volume_factor = (int32_t(output_volume_) * 65536) / 100;",
+    )
+    replace_once(
+        XIAOZHI / "main" / "audio" / "audio_codec.h",
+        "    int output_volume_ = 70;",
+        "    int output_volume_ = 100;",
+    )
+    replace_once(
+        XIAOZHI / "main" / "audio" / "audio_codec.cc",
+        '    Settings settings("audio", false);\n    output_volume_ = settings.GetInt("output_volume", output_volume_);',
+        '    output_volume_ = 100;\n    ESP_LOGI(TAG, "JARVIS speaker output volume fixed at %d", output_volume_);',
+    )
+
     BOARD_DST.mkdir(parents=True, exist_ok=True)
     for name in ("config.h", "config.json", "jarvis_led.h", "jarvis_led.cc", "jarvis_s3_zero_board.cc"):
         shutil.copy2(BOARD_SRC / name, BOARD_DST / name)
