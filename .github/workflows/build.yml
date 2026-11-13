@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - jarvis-english-clean-start
+      - fix/jarvis-speaker-volume-100-linear
   workflow_dispatch:
 
 permissions:
