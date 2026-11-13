@@ -23,7 +23,7 @@
   },
   "led_behavior": {
     "startup": { "onboard": "red", "blinks": 5 },
-    "greeting": { "onboard": "off", "spoken": "Hi there" },
+    "greeting": { "spoken": "Hi there" },
     "standby": { "onboard": "yellow_breathe" },
     "listening": { "onboard": "blue_blink" },
     "processing": { "onboard": "alternate_green_blue_blink" },

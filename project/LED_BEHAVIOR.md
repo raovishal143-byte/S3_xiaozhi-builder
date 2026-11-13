@@ -10,7 +10,7 @@
 | State | Onboard RGB LED — GPIO21 |
 |---|---|
 | Power ON | Red blinking exactly five times |
-| Startup greeting | LED off while the local greeting "Hi there!" plays |
+| Startup greeting | Speak "Hi there!" once after successful startup and audio initialization; no separate LED pattern is specified |
 | Standby / waiting for "Jarvis" | Yellow breathing |
 | Listening to user | Blue blinking |
 | Processing the request | Alternating green and blue blinking |
@@ -20,7 +20,6 @@
 
 - Run the five red startup flashes once only; never restart the sequence during normal state transitions.
 - Play "Hi there!" once after successful startup and audio initialization.
-- Keep the LED off during the local startup greeting.
 - After the greeting finishes, enter standby with a yellow breathing effect.
 - Listening, processing, and speaking each replace the previous animation; patterns must never run concurrently.
 - Use non-blocking timer-driven animation so LED effects do not block microphone capture, network I/O, or speaker playback.
