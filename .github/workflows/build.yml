@@ -32,7 +32,7 @@ jobs:
           cfg = Path("xiaozhi-esp32/main/boards/jarvis-s3-zero/config.h").read_text()
           expected = {
               "AUDIO_INPUT_SAMPLE_RATE": "16000",
-              "AUDIO_OUTPUT_SAMPLE_RATE": "24000",
+              "AUDIO_OUTPUT_SAMPLE_RATE": "32000",
               "AUDIO_I2S_MIC_GPIO_SCK": "GPIO_NUM_4",
               "AUDIO_I2S_MIC_GPIO_WS": "GPIO_NUM_5",
               "AUDIO_I2S_MIC_GPIO_DIN": "GPIO_NUM_6",
