@@ -2,21 +2,14 @@
 #include "application.h"
 #include "device_state.h"
 #include <esp_log.h>
+#include <cmath>
 
 #define TAG "JarvisLed"
 static constexpr uint32_t kBlinkPeriodMs = 300;
+static constexpr uint64_t kBreathPeriodUs = 30000;
+static constexpr float kPi = 3.14159265358979323846f;
 
-JarvisLed::JarvisLed(gpio_num_t rgb_gpio, gpio_num_t external_gpio)
-    : external_gpio_(external_gpio) {
-    gpio_config_t gpio_cfg = {};
-    gpio_cfg.pin_bit_mask = 1ULL << external_gpio_;
-    gpio_cfg.mode = GPIO_MODE_OUTPUT;
-    gpio_cfg.pull_up_en = GPIO_PULLUP_DISABLE;
-    gpio_cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    gpio_cfg.intr_type = GPIO_INTR_DISABLE;
-    ESP_ERROR_CHECK(gpio_config(&gpio_cfg));
-    ESP_ERROR_CHECK(gpio_set_level(external_gpio_, 0));
-
+JarvisLed::JarvisLed(gpio_num_t rgb_gpio) {
     led_strip_config_t strip_cfg = {};
     strip_cfg.strip_gpio_num = rgb_gpio;
     strip_cfg.max_leds = 1;
@@ -37,8 +30,7 @@ JarvisLed::JarvisLed(gpio_num_t rgb_gpio, gpio_num_t external_gpio)
     timer_args.skip_unhandled_events = true;
     ESP_ERROR_CHECK(esp_timer_create(&timer_args, &timer_));
 
-    // Start the red boot pattern immediately when the board creates this LED.
-    // The board constructor forces LED creation before Application enters Starting.
+    // Begin the one-time five-flash red startup pattern as soon as the board is created.
     SetMode(Mode::Startup);
 }
 
@@ -57,39 +49,62 @@ void JarvisLed::Render(bool on) {
     if (!strip_) return;
 
     uint8_t r = 0, g = 0, b = 0;
-    if (on) {
+
+    if (mode_ == Mode::Standby) {
+        // Smooth yellow breathing, approximately a 3-second full cycle.
+        const float phase = (2.0f * kPi * static_cast<float>(breath_step_)) / 100.0f;
+        const float wave = 0.5f - 0.5f * std::cos(phase);
+        const uint8_t level = static_cast<uint8_t>(2.0f + wave * 24.0f);
+        r = level;
+        g = level;
+    } else if (on) {
         switch (mode_) {
-            case Mode::Startup:     r = 24; g = 0;  b = 0;  break; // red
-            case Mode::Speaking:    r = 0;  g = 24; b = 0;  break; // green
-            case Mode::Listening:   r = 0;  g = 0;  b = 24; break; // blue
-            case Mode::Processing:  r = 0;  g = 0;  b = 24; break; // blue
-            default: break;
+            case Mode::Startup:
+                r = 28; // red
+                break;
+            case Mode::Listening:
+                b = 28; // blue
+                break;
+            case Mode::Processing:
+                if (processing_blue_phase_) {
+                    b = 28; // alternate blue and green on successive flashes
+                } else {
+                    g = 28;
+                }
+                break;
+            case Mode::Speaking:
+                g = 28; // green
+                break;
+            default:
+                break;
         }
     }
+
     ESP_ERROR_CHECK(led_strip_set_pixel(strip_, 0, r, g, b));
     ESP_ERROR_CHECK(led_strip_refresh(strip_));
-
-    const bool external_on = on && mode_ == Mode::Speaking;
-    ESP_ERROR_CHECK(gpio_set_level(external_gpio_, external_on ? 1 : 0));
 }
 
 void JarvisLed::SetMode(Mode mode) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (timer_) esp_timer_stop(timer_);
+
+    if (mode == Mode::Startup && startup_done_) return;
+    if (timer_) ESP_ERROR_CHECK(esp_timer_stop(timer_));
+
     mode_ = mode;
     startup_edges_remaining_ = 0;
+    breath_step_ = 0;
+    processing_blue_phase_ = false;
 
     if (mode_ == Mode::Startup) {
-        // Start lit immediately; ten edges produce exactly five complete flashes.
-        startup_edges_remaining_ = 10;
+        startup_edges_remaining_ = 10; // ten edges = exactly five complete flashes
         Render(true);
         ESP_ERROR_CHECK(esp_timer_start_periodic(timer_, kBlinkPeriodMs * 1000ULL));
         return;
     }
 
     if (mode_ == Mode::Standby) {
-        Render(false);
-        ESP_ERROR_CHECK(gpio_set_level(external_gpio_, 1));
+        Render(true);
+        ESP_ERROR_CHECK(esp_timer_start_periodic(timer_, kBreathPeriodUs));
         return;
     }
 
@@ -103,17 +118,38 @@ void JarvisLed::SetMode(Mode mode) {
 }
 
 void JarvisLed::OnTimer() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (mode_ == Mode::Startup) {
-        --startup_edges_remaining_;
-        if (startup_edges_remaining_ <= 0) {
-            ESP_ERROR_CHECK(esp_timer_stop(timer_));
-            mode_ = Mode::Off;
-            Render(false);
-            return;
+    bool enter_standby = false;
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        if (mode_ == Mode::Startup) {
+            --startup_edges_remaining_;
+            if (startup_edges_remaining_ <= 0) {
+                ESP_ERROR_CHECK(esp_timer_stop(timer_));
+                startup_done_ = true;
+                mode_ = Mode::Off;
+                Render(false);
+                enter_standby =
+                    Application::GetInstance().GetDeviceState() == kDeviceStateIdle;
+            } else {
+                Render(!phase_on_);
+            }
+        } else if (mode_ == Mode::Standby) {
+            breath_step_ = static_cast<uint8_t>((breath_step_ + 1) % 100);
+            Render(true);
+        } else {
+            const bool next_on = !phase_on_;
+            if (mode_ == Mode::Processing && next_on) {
+                processing_blue_phase_ = !processing_blue_phase_;
+            }
+            Render(next_on);
         }
     }
-    Render(!phase_on_);
+
+    if (enter_standby) {
+        SetMode(Mode::Standby);
+    }
 }
 
 void JarvisLed::TimerCallback(void* arg) {
@@ -123,13 +159,21 @@ void JarvisLed::TimerCallback(void* arg) {
 void JarvisLed::OnStateChanged() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        // Do not let a fast Wi-Fi/activation transition truncate the five red boot flashes.
+        // Never let a quick network transition truncate the five startup flashes.
         if (mode_ == Mode::Startup && startup_edges_remaining_ > 0) return;
     }
+
     switch (Application::GetInstance().GetDeviceState()) {
-        case kDeviceStateStarting:
-            SetMode(Mode::Startup);
+        case kDeviceStateStarting: {
+            bool startup_done;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                startup_done = startup_done_;
+            }
+            if (!startup_done) SetMode(Mode::Startup);
+            else SetMode(Mode::Off);
             break;
+        }
         case kDeviceStateIdle:
             voice_seen_ = false;
             SetMode(Mode::Standby);
@@ -154,11 +198,20 @@ void JarvisLed::OnStateChanged() {
 
 void JarvisLed::OnVoiceActivityChanged(bool active) {
     if (Application::GetInstance().GetDeviceState() != kDeviceStateListening) return;
+
+    bool should_process = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (active) {
+            voice_seen_ = true;
+        } else {
+            should_process = voice_seen_;
+        }
+    }
+
     if (active) {
-        voice_seen_ = true;
         SetMode(Mode::Listening);
-    } else if (voice_seen_) {
-        // While Jarvis processes the captured speech, retain the requested blue blink.
+    } else if (should_process) {
         SetMode(Mode::Processing);
     }
 }

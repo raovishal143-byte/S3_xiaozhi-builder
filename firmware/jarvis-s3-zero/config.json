@@ -15,9 +15,10 @@
   ],
   "led_behavior": {
     "startup": {"onboard": "red", "blinks": 5},
-    "standby": {"onboard": "off", "external": "solid_on"},
+    "greeting": {"onboard": "off", "spoken": "Hi there"},
+    "standby": {"onboard": "yellow_breathe"},
     "listening": {"onboard": "blue_blink"},
-    "processing": {"onboard": "blue_blink"},
-    "speaking": {"onboard": "green_blink", "external": "green_blink", "synchronized": true}
+    "processing": {"onboard": "alternate_green_blue_blink"},
+    "speaking": {"onboard": "green_blink"}
   }
 }

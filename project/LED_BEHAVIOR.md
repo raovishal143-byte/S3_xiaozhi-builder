@@ -1,36 +1,27 @@
-# JARVIS LED Behavior — Fixed Specification
+# JARVIS LED Behavior — Current Fixed Specification
 
-## Hardware outputs
+## Hardware output
 
-- Onboard addressable RGB LED data: GPIO21.
-- External single-color LED control: GPIO2.
-- The external LED is treated as active-high unless hardware verification proves otherwise.
+- Use only the onboard WS2812 RGB LED on GPIO21.
+- GPIO2 is not used. No external status LED is configured or driven.
 
 ## State table
 
-| State | Onboard RGB GPIO21 | External GPIO2 |
-|---|---|---|
-| Power ON / startup | Green blink exactly 5 times, then off | Off |
-| Standby / waiting for wake phrase | Off | Solid ON |
-| Listening to user | Blue blinking | Off |
-| Processing / thinking | Yellow blinking | Off |
-| AI speaking / responding | Green blinking | Green blinking in sync |
+| State | Onboard RGB LED — GPIO21 |
+|---|---|
+| Power ON | Red blinking exactly five times |
+| Startup greeting | LED off while the local greeting "Hi there!" plays |
+| Standby / waiting for "Jarvis" | Yellow breathing |
+| Listening to user | Blue blinking |
+| Processing the request | Alternating green and blue blinking |
+| AI speaking / responding | Green blinking |
 
 ## Transition requirements
 
-- Exactly five startup green flashes. No sixth flash and no repeated startup sequence during normal operation.
-- After startup and successful initialization, play the greeting "Hi there" once, then enter standby.
-- In standby, GPIO2 stays continuously ON; GPIO21 is OFF.
-- When listening starts, turn GPIO2 OFF and blink GPIO21 blue.
-- When processing starts, stop the blue pattern and blink GPIO21 yellow.
-- When speech playback starts, stop the yellow pattern and blink both outputs green in sync.
-- When speech playback ends, stop both speech patterns and return to standby.
-- On every state transition, cancel the previous state's LED task/pattern before starting the next one. Never allow two state patterns to run concurrently.
-
-## Implementation notes
-
-- Use one central state controller as the only owner of LED output.
-- Use non-blocking timing; LED animation must not block microphone capture, network I/O, or audio playback.
-- Keep blink timing configurable in one place. The required colors and number of startup flashes are fixed; timing may be tuned during bench testing.
-- Confirm GPIO21 is the onboard RGB LED's data pin and determine its pixel protocol/color order before selecting the LED driver.
-- Confirm GPIO2 external LED polarity and use a suitable series resistor.
+- Run the five red startup flashes once only; never restart the sequence during normal state transitions.
+- Play "Hi there!" once after successful startup and audio initialization.
+- Keep the LED off during the local startup greeting.
+- After the greeting finishes, enter standby with a yellow breathing effect.
+- Listening, processing, and speaking each replace the previous animation; patterns must never run concurrently.
+- Use non-blocking timer-driven animation so LED effects do not block microphone capture, network I/O, or speaker playback.
+- Use GPIO21 only. Do not initialize GPIO2 or any external LED output.

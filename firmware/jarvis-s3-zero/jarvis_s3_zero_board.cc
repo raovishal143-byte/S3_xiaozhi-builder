@@ -6,8 +6,7 @@
 class JarvisS3ZeroBoard final : public WifiBoard {
 public:
     JarvisS3ZeroBoard() {
-        // Create the WS2812 controller before Application enters its Starting state.
-        // This guarantees the five red startup flashes are not missed.
+        // Create the onboard RGB LED controller before Application starts.
         (void)GetLed();
     }
 
@@ -20,7 +19,7 @@ public:
     }
 
     Led* GetLed() override {
-        static JarvisLed led(BUILTIN_LED_GPIO, JARVIS_EXTERNAL_LED_GPIO);
+        static JarvisLed led(BUILTIN_LED_GPIO);
         return &led;
     }
 };

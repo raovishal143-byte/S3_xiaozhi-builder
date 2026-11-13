@@ -24,6 +24,23 @@ jobs:
           python3 scripts/prepare-jarvis-firmware.py
           node scripts/generate-config.js build_config.json
 
+      - name: Verify JARVIS board and audio configuration before build
+        run: |
+          CFG=xiaozhi-esp32/main/boards/jarvis-s3-zero/config.h
+          grep -q '^#define AUDIO_INPUT_SAMPLE_RATE  16000$' "$CFG"
+          grep -q '^#define AUDIO_OUTPUT_SAMPLE_RATE 24000$' "$CFG"
+          grep -q '^#define AUDIO_I2S_MIC_GPIO_SCK  GPIO_NUM_4$' "$CFG"
+          grep -q '^#define AUDIO_I2S_MIC_GPIO_WS   GPIO_NUM_5$' "$CFG"
+          grep -q '^#define AUDIO_I2S_MIC_GPIO_DIN  GPIO_NUM_6$' "$CFG"
+          grep -q '^#define AUDIO_I2S_SPK_GPIO_BCLK GPIO_NUM_7$' "$CFG"
+          grep -q '^#define AUDIO_I2S_SPK_GPIO_LRCK GPIO_NUM_8$' "$CFG"
+          grep -q '^#define AUDIO_I2S_SPK_GPIO_DOUT GPIO_NUM_9$' "$CFG"
+          grep -q '^#define BUILTIN_LED_GPIO GPIO_NUM_21$' "$CFG"
+          ! grep -q 'GPIO_NUM_2\|EXTERNAL_LED' "$CFG"
+          grep -q 'volume_factor = (int32_t(output_volume_) * 65536) / 100;' xiaozhi-esp32/main/audio/codecs/no_audio_codec.cc
+          grep -q 'output_volume_ = 100;' xiaozhi-esp32/main/audio/audio_codec.cc
+          echo "Verified GPIOs, 16 kHz mic, 24 kHz speaker, onboard-only LED, and linear 100% volume."
+
       - name: Build ESP32-S3-Zero firmware with offline Jarvis wake model
         uses: espressif/esp-idf-ci-action@v1
         with:
@@ -36,7 +53,7 @@ jobs:
             python3 ../scripts/generate-greeting-header.py &&
             python3 scripts/build.py jarvis-s3-zero --language en-US --wake-word wn9_jarvis_tts
 
-      - name: Verify 4MB flash, Quad PSRAM and offline wake-word configuration
+      - name: Verify flash, memory, wake-word and merged image
         if: success()
         run: |
           grep -q '^CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y$' xiaozhi-esp32/sdkconfig
@@ -46,9 +63,17 @@ jobs:
           grep -q '^CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/4m.csv"$' xiaozhi-esp32/sdkconfig
           grep -q '^CONFIG_USE_AFE_WAKE_WORD=y$' xiaozhi-esp32/sdkconfig
           grep -q '^CONFIG_SR_WN_WN9_JARVIS_TTS=y$' xiaozhi-esp32/sdkconfig
-          MERGED_SIZE=$(stat -c%s xiaozhi-esp32/build/merged-binary.bin)
-          echo "Merged firmware size: ${MERGED_SIZE} bytes"
-          test "${MERGED_SIZE}" -le 4194304
+          MERGED=xiaozhi-esp32/build/merged-binary.bin
+          test -s "$MERGED"
+          python3 - <<'PY'
+          from pathlib import Path
+          image = Path("xiaozhi-esp32/build/merged-binary.bin").read_bytes()
+          assert image[0] == 0xE9, f"Unexpected ESP image magic: {image[0]:02x}"
+          assert image[2] == 0x02, f"Expected DIO flash mode, got {image[2]:02x}"
+          assert image[3] == 0x2F, f"Expected 4MB/80MHz flash config 0x2f, got {image[3]:02x}"
+          assert len(image) <= 4 * 1024 * 1024, f"Merged image too large: {len(image)}"
+          print(f"Verified DIO/80MHz/4MB image, {len(image)} bytes")
+          PY
 
       - name: Collect firmware files
         if: success()
