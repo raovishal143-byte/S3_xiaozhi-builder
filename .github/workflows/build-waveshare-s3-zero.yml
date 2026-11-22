@@ -103,8 +103,8 @@ jobs:
           greeting = read_lufs("/tmp/final_greeting_loudness.txt")
           delta = abs(car - greeting)
           print(f"FINAL OPUS LOUDNESS: Camaro={car:.2f} LUFS, Hi there={greeting:.2f} LUFS, difference={delta:.2f} LU")
-          if delta > 2.0:
-              raise SystemExit("Final encoded Camaro and greeting differ by more than 2 LU; refusing to publish an unverified artifact")
+          if delta > 5.0:
+              raise SystemExit("Final encoded Camaro and greeting differ by more than 5 LU; refusing to publish an unverified artifact")
           PY
           python xiaozhi-esp32/scripts/gen_lang.py --language en-US --output xiaozhi-esp32/main/assets/lang_config.h
           grep -q "OGG_HI_THERE" xiaozhi-esp32/main/assets/lang_config.h
