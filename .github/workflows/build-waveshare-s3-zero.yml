@@ -1,5 +1,5 @@
 name: Build Waveshare ESP32-S3-Zero XiaoZhi Firmware
-# Rebuild: corrected I2S pins, no GPIO2 LED or amp SD control, onboard RGB, scanner, Jarvis, greeting, and Quad PSRAM.
+# Rebuild: five red startup flashes; yellow standby; blue listening/processing; green speaking; smoother I2S playback buffering; scanner, Jarvis, greeting, and Quad PSRAM.
 
 on:
   push:
