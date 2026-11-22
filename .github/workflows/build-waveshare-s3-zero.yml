@@ -44,8 +44,8 @@ jobs:
           fade_start="$(python -c 'import sys; print(max(0.0, float(sys.argv[1]) - float(sys.argv[2])))' "$car_duration" "$fade_duration")"
           echo "Camaro clip source duration: $car_source_duration s; using $car_duration s with $fade_duration s fade"
 
-          # Loudness-normalize the engine recording to -12 LUFS and cap peaks at -1 dBTP.
-          ffmpeg -y -i "$car_mp3" -af "loudnorm=I=-12:TP=-1.0:LRA=7,atrim=duration=$car_duration,afade=t=out:st=$fade_start:d=$fade_duration" -ac 1 -ar 24000 -c:a pcm_s16le /tmp/camaro.wav
+          # Loudness-normalize the engine recording to -8 LUFS and cap peaks at -1 dBTP.
+          ffmpeg -y -i "$car_mp3" -af "loudnorm=I=-8:TP=-1.0:LRA=7,atrim=duration=$car_duration,afade=t=out:st=$fade_start:d=$fade_duration" -ac 1 -ar 24000 -c:a pcm_s16le /tmp/camaro.wav
           ffmpeg -y -f lavfi -i "anullsrc=r=24000:cl=mono" -t 2 -ac 1 -ar 24000 -c:a pcm_s16le /tmp/startup_silence.wav
           # Increase the greeting from +4 dB to +7 dB, with peak limiting.
           ffmpeg -y -i /tmp/hi_there.wav -af "volume=7dB,alimiter=limit=0.95:attack=5:release=50:level=false" -ac 1 -ar 24000 -c:a pcm_s16le /tmp/hi_there_boosted.wav
