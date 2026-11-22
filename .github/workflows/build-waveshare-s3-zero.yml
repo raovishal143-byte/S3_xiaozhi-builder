@@ -1,5 +1,5 @@
 name: Build Waveshare ESP32-S3-Zero XiaoZhi Firmware
-# Rebuild: startup greeting boosted by 4 dB with peak limiting; preserve Jarvis, LED, scanner, audio-buffer, and Quad PSRAM settings.
+# Rebuild: normalize and boost startup audio; add breathing yellow standby; preserve Jarvis, scanner, audio-buffer, and Quad PSRAM settings.
 
 on:
   push:
@@ -34,8 +34,8 @@ jobs:
           mkdir -p xiaozhi-esp32/main/assets/locales/en-US
           espeak-ng -v en-us -s 148 -a 160 -w /tmp/hi_there.wav "Hi there"
 
-          # Build one startup sound: Camaro clip (max 7 seconds), 2 seconds silence,
-          # then the louder spoken greeting. Fade the engine sound over its final 2 seconds.
+          # Build one startup sound: normalized Camaro clip (max 7 seconds), 2 seconds silence,
+          # then a louder spoken greeting. Fade the engine sound over its final 2 seconds.
           car_mp3="xiaozhi-esp32/main/boards/waveshare-esp32-s3-zero-xiaozhi/audio/camaro-ss-loud_to use.mp3"
           test -s "$car_mp3"
           car_source_duration="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$car_mp3")"
@@ -44,9 +44,11 @@ jobs:
           fade_start="$(python -c 'import sys; print(max(0.0, float(sys.argv[1]) - float(sys.argv[2])))' "$car_duration" "$fade_duration")"
           echo "Camaro clip source duration: $car_source_duration s; using $car_duration s with $fade_duration s fade"
 
-          ffmpeg -y -i "$car_mp3" -af "atrim=duration=$car_duration,afade=t=out:st=$fade_start:d=$fade_duration" -ac 1 -ar 24000 -c:a pcm_s16le /tmp/camaro.wav
+          # Loudness-normalize the engine recording to -12 LUFS and cap peaks at -1 dBTP.
+          ffmpeg -y -i "$car_mp3" -af "loudnorm=I=-12:TP=-1.0:LRA=7,atrim=duration=$car_duration,afade=t=out:st=$fade_start:d=$fade_duration" -ac 1 -ar 24000 -c:a pcm_s16le /tmp/camaro.wav
           ffmpeg -y -f lavfi -i "anullsrc=r=24000:cl=mono" -t 2 -ac 1 -ar 24000 -c:a pcm_s16le /tmp/startup_silence.wav
-          ffmpeg -y -i /tmp/hi_there.wav -af "volume=4dB,alimiter=limit=0.95:attack=5:release=50:level=false" -ac 1 -ar 24000 -c:a pcm_s16le /tmp/hi_there_boosted.wav
+          # Increase the greeting from +4 dB to +7 dB, with peak limiting.
+          ffmpeg -y -i /tmp/hi_there.wav -af "volume=7dB,alimiter=limit=0.95:attack=5:release=50:level=false" -ac 1 -ar 24000 -c:a pcm_s16le /tmp/hi_there_boosted.wav
 
           printf '%s\n' "file '/tmp/camaro.wav'" "file '/tmp/startup_silence.wav'" "file '/tmp/hi_there_boosted.wav'" > /tmp/startup_concat.txt
           ffmpeg -y -f concat -safe 0 -i /tmp/startup_concat.txt -ac 1 -ar 24000 -c:a libopus -application voip -frame_duration 20 -b:a 48k -vbr on xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg
@@ -94,16 +96,10 @@ jobs:
           retention-days: 30
 
 # Rebuild after adding explicit ESP timer include to the microphone diagnostic.
-
 # Rebuild after the diagnostic uses std::sqrt.
-
 # Rebuild after correcting INMP441 24-bit sample scaling to 16-bit PCM.
 # Include immediate wake-word LED indication during the connecting state.
-
 # Rebuild for speaker-path diagnostics: Opus PCM and I2S write instrumentation.
-
 # Rebuild after restoring mic scaling, preserving startup LED flashes, and correcting speaker volume scaling.
-
 # Rebuild after adding raw INMP441 I2S diagnostics and reliable LED startup/task checks.
-
 # Rebuild after removing external GPIO2 and amplifier SD control; add onboard RGB status and six-LED KITT scanner.
