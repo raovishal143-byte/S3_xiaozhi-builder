@@ -57,7 +57,7 @@ jobs:
           import json, re
           from pathlib import Path
           text = Path('/tmp/greeting_loudness.txt').read_text()
-          blocks = re.findall(r'\\{\\s*"input_i".*?\\}', text, re.S)
+          blocks = re.findall(r'\{\s*"input_i".*?\}', text, re.S)
           if not blocks:
               raise SystemExit('Could not measure Hi there loudness')
           value = json.loads(blocks[-1])['input_i']
