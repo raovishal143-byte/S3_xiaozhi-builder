@@ -1,5 +1,5 @@
 name: Build Waveshare ESP32-S3-Zero XiaoZhi Firmware
-# Rebuild: five red startup flashes; yellow standby; blue listening/processing; green speaking; smoother I2S playback buffering; scanner, Jarvis, greeting, and Quad PSRAM.
+# Rebuild: startup greeting boosted by 4 dB with peak limiting; preserve Jarvis, LED, scanner, audio-buffer, and Quad PSRAM settings.
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
           mkdir -p xiaozhi-esp32/main/assets/locales/en-US
           espeak-ng -v en-us -s 148 -a 160 -w /tmp/hi_there.wav "Hi there"
           # XiaoZhi decodes Ogg Opus, not Ogg Vorbis.
-          ffmpeg -y -i /tmp/hi_there.wav -ac 1 -ar 24000 -c:a libopus -application voip -frame_duration 20 -b:a 24k -vbr on xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg
+          ffmpeg -y -i /tmp/hi_there.wav -af "volume=4dB,alimiter=limit=0.95:attack=5:release=50:level=false" -ac 1 -ar 24000 -c:a libopus -application voip -frame_duration 20 -b:a 24k -vbr on xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg
           codec="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg)"
           channels="$(ffprobe -v error -select_streams a:0 -show_entries stream=channels -of default=noprint_wrappers=1:nokey=1 xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg)"
           test "$codec" = "opus"
