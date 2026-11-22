@@ -1,5 +1,5 @@
 name: Build Waveshare ESP32-S3-Zero XiaoZhi Firmware
-# Full preflight rebuild: mic RX/PCM, speaker TX/amp enable, Jarvis, greeting, LED, and PSRAM.
+# Rebuild: corrected I2S pins, no GPIO2 LED or amp SD control, onboard RGB, scanner, Jarvis, greeting, and Quad PSRAM.
 
 on:
   push:
@@ -90,4 +90,4 @@ jobs:
 
 # Rebuild after adding raw INMP441 I2S diagnostics and reliable LED startup/task checks.
 
-# Rebuild after full source audit, exact-five-flash LED fix, and build-time greeting/memory checks.
+# Rebuild after removing external GPIO2 and amplifier SD control; add onboard RGB status and six-LED KITT scanner.
