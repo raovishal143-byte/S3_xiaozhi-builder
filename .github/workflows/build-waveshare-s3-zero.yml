@@ -48,7 +48,7 @@ jobs:
           ffmpeg -y -f lavfi -i "anullsrc=r=24000:cl=mono" -t 2 -ac 1 -ar 24000 -c:a pcm_s16le /tmp/startup_silence.wav
           ffmpeg -y -i /tmp/hi_there.wav -af "volume=4dB,alimiter=limit=0.95:attack=5:release=50:level=false" -ac 1 -ar 24000 -c:a pcm_s16le /tmp/hi_there_boosted.wav
 
-          printf "file '/tmp/camaro.wav'\\nfile '/tmp/startup_silence.wav'\\nfile '/tmp/hi_there_boosted.wav'\\n" > /tmp/startup_concat.txt
+          printf '%s\\n' "file '/tmp/camaro.wav'" "file '/tmp/startup_silence.wav'" "file '/tmp/hi_there_boosted.wav'" > /tmp/startup_concat.txt
           ffmpeg -y -f concat -safe 0 -i /tmp/startup_concat.txt -ac 1 -ar 24000 -c:a libopus -application voip -frame_duration 20 -b:a 48k -vbr on xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg
           # XiaoZhi decodes Ogg Opus, not Ogg Vorbis.
           codec="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg)"
