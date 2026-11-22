@@ -33,8 +33,24 @@ jobs:
           sudo apt-get install -y espeak-ng ffmpeg
           mkdir -p xiaozhi-esp32/main/assets/locales/en-US
           espeak-ng -v en-us -s 148 -a 160 -w /tmp/hi_there.wav "Hi there"
+
+          # Build one startup sound: Camaro clip (max 7 seconds), 2 seconds silence,
+          # then the louder spoken greeting. Fade the engine sound over its final 2 seconds.
+          car_mp3="xiaozhi-esp32/main/boards/waveshare-esp32-s3-zero-xiaozhi/audio/camaro-ss-loud_to use.mp3"
+          test -s "$car_mp3"
+          car_source_duration="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$car_mp3")"
+          car_duration="$(python -c 'import sys; print(min(7.0, float(sys.argv[1])))' "$car_source_duration")"
+          fade_duration="$(python -c 'import sys; print(min(2.0, float(sys.argv[1])))' "$car_duration")"
+          fade_start="$(python -c 'import sys; print(max(0.0, float(sys.argv[1]) - float(sys.argv[2])))' "$car_duration" "$fade_duration")"
+          echo "Camaro clip source duration: $car_source_duration s; using $car_duration s with $fade_duration s fade"
+
+          ffmpeg -y -i "$car_mp3" -af "atrim=duration=$car_duration,afade=t=out:st=$fade_start:d=$fade_duration" -ac 1 -ar 24000 -c:a pcm_s16le /tmp/camaro.wav
+          ffmpeg -y -f lavfi -i "anullsrc=r=24000:cl=mono" -t 2 -ac 1 -ar 24000 -c:a pcm_s16le /tmp/startup_silence.wav
+          ffmpeg -y -i /tmp/hi_there.wav -af "volume=4dB,alimiter=limit=0.95:attack=5:release=50:level=false" -ac 1 -ar 24000 -c:a pcm_s16le /tmp/hi_there_boosted.wav
+
+          printf "file '/tmp/camaro.wav'\\nfile '/tmp/startup_silence.wav'\\nfile '/tmp/hi_there_boosted.wav'\\n" > /tmp/startup_concat.txt
+          ffmpeg -y -f concat -safe 0 -i /tmp/startup_concat.txt -ac 1 -ar 24000 -c:a libopus -application voip -frame_duration 20 -b:a 48k -vbr on xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg
           # XiaoZhi decodes Ogg Opus, not Ogg Vorbis.
-          ffmpeg -y -i /tmp/hi_there.wav -af "volume=4dB,alimiter=limit=0.95:attack=5:release=50:level=false" -ac 1 -ar 24000 -c:a libopus -application voip -frame_duration 20 -b:a 24k -vbr on xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg
           codec="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg)"
           channels="$(ffprobe -v error -select_streams a:0 -show_entries stream=channels -of default=noprint_wrappers=1:nokey=1 xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg)"
           test "$codec" = "opus"
