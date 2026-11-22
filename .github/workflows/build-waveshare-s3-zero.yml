@@ -80,6 +80,31 @@ jobs:
           test "$codec" = "opus"
           test "$channels" = "1"
           echo "Verified greeting: codec=$codec channels=$channels"
+
+          # Measure the decoded, final Opus asset by segment (not the pre-encode WAV).
+          greeting_duration="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 /tmp/hi_there_boosted.wav)"
+          greeting_start="$(python -c 'import sys; print(float(sys.argv[1]) + 2.0)' "$car_duration")"
+          ffmpeg -hide_banner -i xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg -af "atrim=start=0:end=$car_duration,loudnorm=I=-24:TP=-1.0:LRA=7:print_format=json" -f null - 2> /tmp/final_car_loudness.txt
+          ffmpeg -hide_banner -i xiaozhi-esp32/main/assets/locales/en-US/hi_there.ogg -af "atrim=start=$greeting_start:duration=$greeting_duration,loudnorm=I=-24:TP=-1.0:LRA=7:print_format=json" -f null - 2> /tmp/final_greeting_loudness.txt
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+          def read_lufs(path):
+              text = Path(path).read_text()
+              blocks = re.findall(r'\\{\\s*"input_i".*?\\}', text, re.S)
+              if not blocks:
+                  raise SystemExit(f"Could not measure final encoded segment: {path}")
+              value = json.loads(blocks[-1])["input_i"]
+              if value == "-inf":
+                  raise SystemExit(f"Final encoded segment is silent: {path}")
+              return float(value)
+          car = read_lufs("/tmp/final_car_loudness.txt")
+          greeting = read_lufs("/tmp/final_greeting_loudness.txt")
+          delta = abs(car - greeting)
+          print(f"FINAL OPUS LOUDNESS: Camaro={car:.2f} LUFS, Hi there={greeting:.2f} LUFS, difference={delta:.2f} LU")
+          if delta > 2.0:
+              raise SystemExit("Final encoded Camaro and greeting differ by more than 2 LU; refusing to publish an unverified artifact")
+          PY
           python xiaozhi-esp32/scripts/gen_lang.py --language en-US --output xiaozhi-esp32/main/assets/lang_config.h
           grep -q "OGG_HI_THERE" xiaozhi-esp32/main/assets/lang_config.h
           echo "Verified OGG_HI_THERE is embedded in the generated language header"
