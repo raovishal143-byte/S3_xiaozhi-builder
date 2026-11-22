@@ -1,5 +1,5 @@
 name: Build Waveshare ESP32-S3-Zero XiaoZhi Firmware
-# Rebuild: add 2 dB to Camaro startup sound and use a brighter, friendlier male startup greeting; preserve all LED, Jarvis, scanner, audio pipeline, and Quad PSRAM settings.
+# Rebuild: use the user's uploaded hi there.mp3 greeting and add 2 dB to Camaro startup sound; preserve all LED, Jarvis, scanner, audio pipeline, and Quad PSRAM settings.
 
 on:
   push:
@@ -34,9 +34,11 @@ jobs:
       - name: Generate spoken startup greeting
         run: |
           sudo apt-get update
-          sudo apt-get install -y espeak-ng ffmpeg
+          sudo apt-get install -y ffmpeg
           mkdir -p xiaozhi-esp32/main/assets/locales/en-US
-          espeak-ng -v en-us+m3 -s 155 -p 55 -a 160 -w /tmp/hi_there.wav "Hi there!"
+          greeting_mp3="hi there.mp3"
+          test -s "$greeting_mp3"
+          ffmpeg -y -i "$greeting_mp3" -af "volume=7dB,alimiter=limit=0.95:attack=5:release=50:level=false" -ac 1 -ar 24000 -c:a pcm_s16le /tmp/hi_there_boosted.wav
 
           # Build one startup sound: normalized Camaro clip (max 7 seconds), 2 seconds silence,
           # then a louder spoken greeting. Fade the engine sound over its final 2 seconds.
@@ -49,8 +51,6 @@ jobs:
           echo "Camaro clip source duration: $car_source_duration s; using $car_duration s with $fade_duration s fade"
 
           # Prepare the friendlier male greeting with a slightly brighter pitch and upbeat pace; retain peak limiting.
-          ffmpeg -y -i /tmp/hi_there.wav -af "volume=7dB,alimiter=limit=0.95:attack=5:release=50:level=false" -ac 1 -ar 24000 -c:a pcm_s16le /tmp/hi_there_boosted.wav
-
           # Measure the actual integrated loudness of the final greeting and use it
           # as the Camaro target, rather than assuming a fixed LUFS value.
           ffmpeg -hide_banner -i /tmp/hi_there_boosted.wav -af "loudnorm=I=-24:TP=-1.0:LRA=7:print_format=json" -f null - 2> /tmp/greeting_loudness.txt
@@ -69,8 +69,8 @@ jobs:
           )"
           echo "Measured Hi there integrated loudness: $greeting_lufs LUFS"
 
-          # Apply the existing 5.5 dB codec/fade compensation plus the requested additional 2 dB (7.5 dB total), then peak-limit safely.
-          ffmpeg -y -i "$car_mp3" -af "loudnorm=I=$greeting_lufs:TP=-1.0:LRA=7,volume=7.5dB,alimiter=limit=0.95:attack=5:release=50:level=false,atrim=duration=$car_duration,afade=t=out:st=$fade_start:d=$fade_duration" -ac 1 -ar 24000 -c:a pcm_s16le /tmp/camaro.wav
+          # Apply the existing 5.5 dB codec/fade compensation plus the requested additional 4 dB (9.5 dB total), then peak-limit safely.
+          ffmpeg -y -i "$car_mp3" -af "loudnorm=I=$greeting_lufs:TP=-1.0:LRA=7,volume=9.5dB,alimiter=limit=0.95:attack=5:release=50:level=false,atrim=duration=$car_duration,afade=t=out:st=$fade_start:d=$fade_duration" -ac 1 -ar 24000 -c:a pcm_s16le /tmp/camaro.wav
           ffmpeg -y -f lavfi -i "anullsrc=r=24000:cl=mono" -t 2 -ac 1 -ar 24000 -c:a pcm_s16le /tmp/startup_silence.wav
 
           printf '%s\n' "file '/tmp/camaro.wav'" "file '/tmp/startup_silence.wav'" "file '/tmp/hi_there_boosted.wav'" > /tmp/startup_concat.txt
