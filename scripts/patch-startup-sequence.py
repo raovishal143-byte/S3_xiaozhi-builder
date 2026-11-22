@@ -137,6 +137,25 @@ def main():
         });
     }""")
 
+    # Fail the build if the critical physical LED requirements are not present.
+    board_text = board.read_text(encoding="utf-8")
+    required = [
+        "strip_config.color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB;",
+        "self->SetColor(brightness, brightness, 0);",
+        "if (mode == 3)",
+        "self->mode_.store(4)",
+        "kDeviceStateActivating",
+        "GPIO_NUM_10, GPIO_NUM_11, GPIO_NUM_12",
+        "GPIO_NUM_13, GPIO_NUM_14, GPIO_NUM_15",
+    ]
+    for token in required:
+        if token not in board_text:
+            raise SystemExit(f"LED requirement verification failed: {token}")
+    if "strip_config.color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_RGB;" in board_text:
+        raise SystemExit("WS2812 must use GRB component order")
+    if "for (int i = 0; i < 5; ++i)" in board_text:
+        raise SystemExit("Constructor-time startup flashes must be removed")
+
     print("Applied startup-only audio-frame LED trigger, five red flashes, true yellow breathing, blue listening/processing, green speaking, and WS2812 GRB colour order.")
     print("No microphone, I2S format, codec, speech streaming, speaker gain, or PSRAM code was changed.")
 
