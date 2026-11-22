@@ -1,5 +1,5 @@
 name: Build Waveshare ESP32-S3-Zero XiaoZhi Firmware
-# Rebuild: normalize and boost startup audio; add breathing yellow standby; preserve Jarvis, scanner, audio-buffer, and Quad PSRAM settings.
+# Rebuild: use GRB ordering for true red WS2812 startup flashes; set Camaro startup audio to -8 LUFS; preserve breathing yellow standby, Jarvis, scanner, audio-buffer, and Quad PSRAM settings.
 
 on:
   push:
