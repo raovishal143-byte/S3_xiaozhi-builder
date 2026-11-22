@@ -18,8 +18,8 @@ def main():
     # red/green channel swap, and run the startup pattern only on first audio output.
     board = SRC / "boards" / "waveshare-esp32-s3-zero-xiaozhi" / "waveshare_s3_zero_board.cc"
     replace(board,
-        "strip_config.color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB;",
-        "strip_config.color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_RGB;")
+        "strip_config.color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_RGB;",
+        "strip_config.color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB;")
     replace(board,
         """        // Exactly five red startup flashes on the onboard addressable RGB LED.
         for (int i = 0; i < 5; ++i) {
@@ -137,7 +137,7 @@ def main():
         });
     }""")
 
-    print("Applied startup-only audio-frame LED trigger, five red flashes, true yellow breathing, blue listening/processing, green speaking, and RGB channel correction.")
+    print("Applied startup-only audio-frame LED trigger, five red flashes, true yellow breathing, blue listening/processing, green speaking, and WS2812 GRB colour order.")
     print("No microphone, I2S format, codec, speech streaming, speaker gain, or PSRAM code was changed.")
 
 if __name__ == "__main__":
