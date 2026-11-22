@@ -91,7 +91,7 @@ jobs:
           from pathlib import Path
           def read_lufs(path):
               text = Path(path).read_text()
-              blocks = re.findall(r'\\{\\s*"input_i".*?\\}', text, re.S)
+              blocks = re.findall(r'\{\s*"input_i".*?\}', text, re.S)
               if not blocks:
                   raise SystemExit(f"Could not measure final encoded segment: {path}")
               value = json.loads(blocks[-1])["input_i"]
