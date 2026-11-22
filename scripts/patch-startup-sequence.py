@@ -7,7 +7,7 @@ SRC = ROOT / "xiaozhi-esp32" / "main"
 
 def replace(path, old, new):
     s = path.read_text(encoding="utf-8")
-    if new in s:
+    if new and new in s:
         return
     if old not in s:
         raise SystemExit(f"Patch anchor missing in {path}: {old[:120]!r}")
